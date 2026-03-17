@@ -739,7 +739,7 @@
       <div class="send-section">
         <div class="send-section-title">📨 수신자</div>
         <input class="fi" id="sendEmail" type="email" placeholder="수신자 이메일 (예: user@company.com)">
-        <div class="send-hint">봇이 해당 멤버와 1:1 대화방을 열고 메시지를 전송합니다.</div>
+        <div class="send-hint">카카오워크 <strong>가입 시 인증한 이메일</strong>을 입력하세요.<br>프로필에 추가한 이메일은 동작하지 않습니다.</div>
       </div>
 
       <div class="send-divider"></div>
@@ -1472,34 +1472,22 @@ function copyCurl(el) {
 }
 
 function buildCurlGuide(appKey, email) {
-  // JSON 페이로드를 파일로 저장 후 참조 — 따옴표 이스케이프 문제 원천 차단
+  // messages.send_by_email — 이메일 하나로 바로 전송 (conversations.open 불필요)
   const payload = {
-    conversation_id: '<2단계에서 얻은 conversation.id>',
+    email: email,
     text: document.getElementById('notifText').value || '새 메시지',
     blocks: blocks.map(cleanBlock)
   };
   const payloadJson = JSON.stringify(payload, null, 2);
 
-  const c1 = `curl -s \\
-  "${KW_API}/users.find_by_email?email=${encodeURIComponent(email)}" \\
-  -H "Authorization: Bearer ${appKey}"
-# 응답에서 user.id 값을 복사해두세요`;
-
-  const c2 = `curl -s -X POST \\
-  "${KW_API}/conversations.open" \\
-  -H "Authorization: Bearer ${appKey}" \\
-  -H "Content-Type: application/json" \\
-  -d '{"user_id": "<1단계에서 얻은 user.id>"}'
-# 응답에서 conversation.id 값을 복사해두세요`;
-
-  const c3 = `# 먼저 페이로드 파일을 저장합니다
+  const cmd = `# 페이로드 파일 저장
 cat > /tmp/kw_message.json << 'PAYLOAD'
 ${payloadJson}
 PAYLOAD
 
-# 그런 다음 전송합니다 (conversation_id는 위 파일에서 교체하세요)
+# 전송 (이메일로 바로 발송 — 대화방 ID 불필요)
 curl -s -X POST \\
-  "${KW_API}/messages.send" \\
+  "${KW_API}/messages.send_by_email" \\
   -H "Authorization: Bearer ${appKey}" \\
   -H "Content-Type: application/json" \\
   -d @/tmp/kw_message.json`;
@@ -1507,16 +1495,18 @@ curl -s -X POST \\
   return `
     <div class="send-status info">
       ℹ️ KakaoWork Bot API는 서버 환경 전용입니다 (브라우저 CORS 미지원).<br>
-      아래 3단계 명령어를 <strong>터미널</strong>(맥: Terminal / 윈도우: PowerShell)에서 순서대로 실행하세요.
+      아래 명령어를 <strong>터미널</strong>(맥: Terminal / 윈도우: Git Bash)에서 실행하세요.
     </div>
-    <div class="curl-block">
-      ${curlBox('① 이메일로 user_id 조회', c1)}
-      ${curlBox('② user_id로 1:1 대화방 열기', c2)}
-      ${curlBox('③ 메시지 전송 (파일 방식 — 이스케이프 걱정 없음)', c3)}
+    <div class="send-status" style="background:#FFF8E0;color:#6B5900;border:1px solid #F5D660;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:2px;">
+      ⚠️ <strong>이메일 주의</strong>: 카카오워크 <strong>가입 시 인증한 이메일</strong>만 유효합니다.<br>
+      프로필에 나중에 추가한 이메일로는 전송되지 않습니다.
+    </div>
+    <div class="curl-block" style="margin-top:8px">
+      ${curlBox('전송 명령어 (1단계로 완료)', cmd)}
     </div>
     <div class="send-hint" style="margin-top:6px">
-      💡 각 명령어 블록을 클릭하면 클립보드에 복사됩니다.<br>
-      ③의 <code>conversation_id</code> 값을 ②의 응답값으로 교체 후 실행하세요.
+      💡 명령어 블록을 클릭하면 클립보드에 복사됩니다.<br>
+      <code>messages.send_by_email</code>은 이메일만으로 대화방 생성 + 전송을 한 번에 처리합니다.
     </div>`;
 }
 
@@ -1637,6 +1627,43 @@ const TEMPLATES = [
       { type:'description', term:'담당팀',    accent:true, content:{ type:'text', text:'인프라팀 (infra@company.com)' } },
       { type:'divider' },
       { type:'context', content:{ type:'text', text:'문의사항은 인프라팀 채널로 연락해 주세요.' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/help.png' } },
+    ]
+  },
+  {
+    name: '📊 설문조사 요청', desc: '의견 수렴 · 만족도 조사',
+    notif: '여러분의 소중한 의견을 들려주세요!',
+    blocks: [
+      { type:'header', text:'📊 설문조사 참여 요청', style:'blue' },
+      { type:'text', text:'안녕하세요!\n짧은 설문조사에 참여해 주시면 서비스 개선에 큰 도움이 됩니다.\n소요 시간은 약 3분입니다.' },
+      { type:'divider' },
+      { type:'description', term:'주제',   accent:true, content:{ type:'text', text:'2024년 상반기 업무 환경 만족도 조사' } },
+      { type:'description', term:'기간',   accent:true, content:{ type:'text', text:'2024년 3월 18일(월) ~ 3월 22일(금)' } },
+      { type:'description', term:'대상',   accent:true, content:{ type:'text', text:'전 임직원 (필수 참여)' } },
+      { type:'description', term:'소요시간', accent:false, content:{ type:'text', text:'약 3분' } },
+      { type:'divider' },
+      { type:'action', elements:[
+        { type:'button', text:'설문 참여하기', style:'primary', action:{ type:'open_system_browser', url:'https://example.com/survey' } },
+        { type:'button', text:'나중에 하기',  style:'default', action:{ type:'open_system_browser', url:'https://example.com' } },
+      ]},
+      { type:'context', content:{ type:'text', text:'응답 내용은 익명으로 처리되며 통계 목적으로만 사용됩니다.' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/survey.png' } },
+    ]
+  },
+  {
+    name: '🎉 칭찬 · 감사 메시지', desc: '팀원 칭찬 및 감사 전달',
+    notif: '칭찬합니다! 🎉',
+    blocks: [
+      { type:'header', text:'🏆 이 달의 MVP', style:'yellow' },
+      { type:'section', content:{ type:'text', text:'이번 달 팀에 큰 기여를 한 분을 소개합니다!\n뛰어난 성과와 동료에 대한 배려로 팀 전체에 긍정적인 영향을 주었습니다.' }, accessory:{ type:'image_link', url:'https://i.pravatar.cc/100?img=12' } },
+      { type:'divider' },
+      { type:'description', term:'이름',   accent:true, content:{ type:'text', text:'홍길동 (개발팀 시니어 개발자)' } },
+      { type:'description', term:'선정 이유', accent:true, content:{ type:'text', text:'신규 서비스 출시를 위해 야근을 마다하지 않으며\n팀원들을 적극적으로 도와 성공적인 런칭을 이끌었습니다.' } },
+      { type:'description', term:'추천인', accent:false, content:{ type:'text', text:'김팀장 외 5명' } },
+      { type:'divider' },
+      { type:'text', text:'👏 모두 함께 축하해 주세요!' },
+      { type:'action', elements:[
+        { type:'button', text:'👍 축하해요!', style:'primary', action:{ type:'open_system_browser', url:'https://example.com/congrats' } },
+        { type:'button', text:'💬 응원 메시지', style:'default', action:{ type:'open_system_browser', url:'https://example.com/message' } },
+      ]},
     ]
   },
 ];
