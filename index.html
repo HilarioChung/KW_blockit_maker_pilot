@@ -389,6 +389,8 @@
     .pv-btn.default { background: var(--kw-gray1); color: #555; }
     .pv-btn.primary { background: var(--kw-yellow); color: var(--kw-dark); }
     .pv-btn.danger  { background: var(--kw-red);   color: #fff; }
+    a.pv-btn { text-decoration: none; cursor: pointer; transition: opacity .15s, box-shadow .15s; }
+    a.pv-btn:hover { opacity: .85; box-shadow: 0 2px 6px rgba(0,0,0,.15); }
 
     .pv-action { padding: 7px 14px; display: flex; gap: 6px; }
     .pv-action .pv-btn { flex: 1; }
@@ -1273,10 +1275,20 @@ function renderBlock(b) {
     }
     case 'divider':
       return `<div class="pv-divider"></div>`;
-    case 'button':
-      return `<div class="pv-btn-wrap"><div class="pv-btn ${b.style||'default'}">${eh(b.text)}</div></div>`;
+    case 'button': {
+      const btnUrl = safeUrl(b.action?.url);
+      const btnEl = btnUrl
+        ? `<a class="pv-btn ${b.style||'default'}" href="${eh(btnUrl)}" target="_blank" rel="noopener noreferrer">${eh(b.text)}</a>`
+        : `<div class="pv-btn ${b.style||'default'}">${eh(b.text)}</div>`;
+      return `<div class="pv-btn-wrap">${btnEl}</div>`;
+    }
     case 'action':
-      return `<div class="pv-action">${(b.elements||[]).map(el=>`<div class="pv-btn ${el.style||'default'}">${eh(el.text)}</div>`).join('')}</div>`;
+      return `<div class="pv-action">${(b.elements||[]).map(el => {
+        const elUrl = safeUrl(el.action?.url);
+        return elUrl
+          ? `<a class="pv-btn ${el.style||'default'}" href="${eh(elUrl)}" target="_blank" rel="noopener noreferrer">${eh(el.text)}</a>`
+          : `<div class="pv-btn ${el.style||'default'}">${eh(el.text)}</div>`;
+      }).join('')}</div>`;
     case 'description':
       return `<div class="pv-desc">
         <div class="pv-term ${b.accent?'accent':''}">${eh(b.term)}</div>
@@ -1317,21 +1329,21 @@ function cleanBlock(b) {
     case 'text':        return { type:'text', text:b.text };
     case 'image_link':  return { type:'image_link', url: b.url?.startsWith('data:') ? '' : safeUrl(b.url) };
     case 'divider':     return { type:'divider' };
-    case 'button':      return { type:'button', text:b.text, style:b.style, action:{ ...b.action, url:safeUrl(b.action?.url) } };
-    case 'action':      return { type:'action', elements:(b.elements||[]).map(el=>({ type:'button', text:el.text, style:el.style, action:{ ...el.action, url:safeUrl(el.action?.url) } })) };
+    case 'button':      return { type:'button', text:b.text, style:b.style, action:{ type:b.action?.type||'open_system_browser', url:safeUrl(b.action?.url) } };
+    case 'action':      return { type:'action', elements:(b.elements||[]).map(el=>({ type:'button', text:el.text, style:el.style, action:{ type:el.action?.type||'open_system_browser', url:safeUrl(el.action?.url) } })) };
     case 'description': return { type:'description', term:b.term, accent:b.accent, content:{ type:'text', text:b.content?.text||'' } };
     case 'section': {
       const out = { type:'section', content:{ type:'text', text:b.content?.text||'' } };
-      if (safeUrl(b.accessory?.url)) out.accessory = { type:'image_link', url:safeUrl(b.accessory.url) };
+      if (safeUrl(b.accessory?.url)) out.accessory = { type:'image_link', url:safeUrl(b.accessory?.url) };
       return out;
     }
     case 'context': {
       // image url is required per spec — omit image entirely if empty (validate() will flag it)
       const ctxOut = { type:'context', content:{ type:'text', text:b.content?.text||'' } };
-      if (safeUrl(b.image?.url)) ctxOut.image = { type:'image_link', url:safeUrl(b.image.url) };
+      if (safeUrl(b.image?.url)) ctxOut.image = { type:'image_link', url:safeUrl(b.image?.url) };
       return ctxOut;
     }
-    default: return b;
+    default: { const {_src, ...rest} = b; return rest; }
   }
 }
 
