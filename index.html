@@ -1402,8 +1402,14 @@ async function generateImage(i) {
     if (!part) throw new Error('이미지 데이터를 받지 못했습니다.');
 
     const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    // 비동기 완료 시점에 블록이 삭제됐을 수 있으므로 존재 여부 확인
+    if (!blocks[i] || blocks[i].type !== 'image_link') {
+      toast('블록이 삭제되어 이미지를 적용할 수 없습니다.');
+      return;
+    }
     blocks[i].url = dataUrl;
-    document.getElementById(`imgUrl_${i}`).value = '(AI 생성 이미지 — 미리보기 전용)';
+    const urlEl = document.getElementById(`imgUrl_${i}`);
+    if (urlEl) urlEl.value = '(AI 생성 이미지 — 미리보기 전용)';
     updateOutput();
     toast('AI 이미지가 생성되었습니다! ✨');
   } catch (e) {
@@ -1420,9 +1426,13 @@ function handleImageUpload(i, input) {
   if (file.size > 5 * 1024 * 1024) { toast('파일 크기는 5MB 이하여야 합니다.'); return; }
   const reader = new FileReader();
   reader.onload = e => {
+    // 파일 읽는 동안 블록이 삭제됐을 수 있으므로 존재 여부 확인
+    if (!blocks[i] || blocks[i].type !== 'image_link') {
+      toast('블록이 삭제되어 이미지를 적용할 수 없습니다.');
+      return;
+    }
     blocks[i].url = e.target.result;
     updateOutput();
-    // 업로드 완료 후 레이블 텍스트 갱신
     const label = document.querySelector(`label[for="imgFile_${i}"]`);
     if (label) label.textContent = '✅ 이미지 업로드 완료 — 다시 선택하려면 클릭';
     toast('이미지가 업로드되었습니다! 🖼');
@@ -1473,10 +1483,15 @@ function copyCurl(el) {
 
 function buildCurlGuide(appKey, email) {
   // messages.send_by_email — 이메일 하나로 바로 전송 (conversations.open 불필요)
+  const cleanedBlocks = blocks.map(cleanBlock);
+  const dataUrlBlockCount = blocks.filter(
+    (b, i) => b.type === 'image_link' && b.url?.startsWith('data:') && cleanedBlocks[i]?.url === ''
+  ).length;
+
   const payload = {
     email: email,
     text: document.getElementById('notifText').value || '새 메시지',
-    blocks: blocks.map(cleanBlock)
+    blocks: cleanedBlocks
   };
   const payloadJson = JSON.stringify(payload, null, 2);
 
@@ -1492,6 +1507,12 @@ curl -s -X POST \\
   -H "Content-Type: application/json" \\
   -d @/tmp/kw_message.json`;
 
+  const dataUrlWarning = dataUrlBlockCount > 0 ? `
+    <div class="send-status" style="background:#FFF0F0;color:#8B1A1A;border:1px solid #F5A0A0;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:2px;">
+      ⚠️ <strong>이미지 주의</strong>: AI 생성 또는 업로드된 이미지(${dataUrlBlockCount}개)는 JSON에 포함될 수 없어 <strong>빈 URL("")로 대체</strong>됩니다.<br>
+      실제 발송 시 이미지가 표시되려면 이미지를 외부 URL(https://...)로 교체하세요.
+    </div>` : '';
+
   return `
     <div class="send-status info">
       ℹ️ KakaoWork Bot API는 서버 환경 전용입니다 (브라우저 CORS 미지원).<br>
@@ -1501,6 +1522,7 @@ curl -s -X POST \\
       ⚠️ <strong>이메일 주의</strong>: 카카오워크 <strong>가입 시 인증한 이메일</strong>만 유효합니다.<br>
       프로필에 나중에 추가한 이메일로는 전송되지 않습니다.
     </div>
+    ${dataUrlWarning}
     <div class="curl-block" style="margin-top:8px">
       ${curlBox('전송 명령어 (1단계로 완료)', cmd)}
     </div>
@@ -1555,8 +1577,8 @@ function eh(s) {
 // http(s): 스킴만 허용 — javascript:, data: 등 차단
 function safeUrl(url) {
   if (!url) return '';
-  // data: URL은 AI생성/업로드 이미지용으로 미리보기에서만 허용 (JSON 출력 시 별도 처리)
-  if (url.startsWith('data:image/')) return url;
+  // data: URL은 이미지 MIME 타입만 허용 (text/html 등 XSS 가능 타입 차단)
+  if (/^data:image\/(jpeg|png|webp|gif|svg\+xml);base64,/.test(url)) return url;
   try {
     const u = new URL(url);
     return (u.protocol === 'http:' || u.protocol === 'https:') ? url : '';
