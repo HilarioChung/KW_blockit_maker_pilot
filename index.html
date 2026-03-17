@@ -728,6 +728,7 @@
           <input class="fi" id="sendAppKey" type="password" placeholder="발급받은 App Key를 입력하세요"
             oninput="saveAppKey()">
           <button class="btn-eye" id="btnEye" onclick="toggleKeyVisibility()" title="보기/숨기기">👁</button>
+          <button class="btn-eye" onclick="clearAppKey()" title="저장된 키 삭제">🗑</button>
         </div>
         <div class="send-hint">
           카카오워크 관리자 페이지 → 봇 관리 → 앱 정보에서 확인할 수 있습니다.<br>
@@ -740,8 +741,8 @@
       <!-- Recipient -->
       <div class="send-section">
         <div class="send-section-title">📨 수신자</div>
-        <input class="fi" id="sendEmail" type="email" placeholder="수신자 이메일 (예: user@company.com)">
-        <div class="send-hint">카카오워크 <strong>가입 시 인증한 이메일</strong>을 입력하세요.<br>프로필에 추가한 이메일은 동작하지 않습니다.</div>
+        <input class="fi" id="sendEmail" type="text" placeholder="예: user1@company.com, user2@company.com">
+        <div class="send-hint">카카오워크 <strong>가입 시 인증한 이메일</strong>을 입력하세요. 쉼표(,)로 구분하면 여러 명에게 발송됩니다.<br>프로필에 추가한 이메일은 동작하지 않습니다.</div>
       </div>
 
       <div class="send-divider"></div>
@@ -1396,13 +1397,13 @@ async function generateImage(i) {
   btn.disabled = true;
   btn.textContent = '생성 중…';
   try {
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp-image-generation:generateContent?key=${encodeURIComponent(apiKey)}`;
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { responseModalities: ['IMAGE'] }
+        generationConfig: { responseModalities: ['TEXT', 'IMAGE'] }
       })
     });
     if (!res.ok) {
@@ -1472,6 +1473,11 @@ function toggleKeyVisibility() {
   inp.type = isHidden ? 'text' : 'password';
   document.getElementById('btnEye').textContent = isHidden ? '🙈' : '👁';
 }
+function clearAppKey() {
+  document.getElementById('sendAppKey').value = '';
+  localStorage.removeItem('kw_app_key');
+  toast('App Key가 삭제되었습니다.');
+}
 
 function setResult(html) {
   const el = document.getElementById('sendResult');
@@ -1493,31 +1499,31 @@ function copyCurl(el) {
   else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('복사되었습니다! 📋'); }
 }
 
-function buildCurlGuide(appKey, email) {
+function buildCurlGuide(appKey, emails) {
   // messages.send_by_email — 이메일 하나로 바로 전송 (conversations.open 불필요)
   const cleanedBlocks = blocks.map(cleanBlock);
   const dataUrlBlockCount = blocks.filter(
     (b, i) => b.type === 'image_link' && b.url?.startsWith('data:') && cleanedBlocks[i]?.url === ''
   ).length;
 
-  const payload = {
-    email: email,
-    text: document.getElementById('notifText').value || '새 메시지',
-    blocks: cleanedBlocks
-  };
-  const payloadJson = JSON.stringify(payload, null, 2);
+  const notifText = document.getElementById('notifText').value || '새 메시지';
 
-  const cmd = `# 페이로드 파일 저장
-cat > /tmp/kw_message.json << 'PAYLOAD'
+  // 수신자별 curl 커맨드 생성
+  const cmds = emails.map((email, idx) => {
+    const payload = { email, text: notifText, blocks: cleanedBlocks };
+    const payloadJson = JSON.stringify(payload, null, 2);
+    const file = emails.length > 1 ? `/tmp/kw_msg_${idx + 1}.json` : '/tmp/kw_message.json';
+    return `# ${emails.length > 1 ? `수신자 ${idx + 1}: ${email}` : '페이로드 파일 저장'}
+cat > ${file} << 'PAYLOAD'
 ${payloadJson}
 PAYLOAD
 
-# 전송 (이메일로 바로 발송 — 대화방 ID 불필요)
 curl -s -X POST \\
   "${KW_API}/messages.send_by_email" \\
   -H "Authorization: Bearer ${appKey}" \\
   -H "Content-Type: application/json" \\
-  -d @/tmp/kw_message.json`;
+  -d @${file}`;
+  });
 
   const dataUrlWarning = dataUrlBlockCount > 0 ? `
     <div class="send-status" style="background:#FFF0F0;color:#8B1A1A;border:1px solid #F5A0A0;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:2px;">
@@ -1525,10 +1531,15 @@ curl -s -X POST \\
       실제 발송 시 이미지가 표시되려면 이미지를 외부 URL(https://...)로 교체하세요.
     </div>` : '';
 
+  const cmdBoxes = cmds.map((cmd, idx) =>
+    curlBox(emails.length > 1 ? `전송 명령어 — 수신자 ${idx + 1} (${emails[idx]})` : '전송 명령어 (1단계로 완료)', cmd)
+  ).join('');
+
   return `
     <div class="send-status info">
       ℹ️ KakaoWork Bot API는 서버 환경 전용입니다 (브라우저 CORS 미지원).<br>
       아래 명령어를 <strong>터미널</strong>(맥: Terminal / 윈도우: Git Bash)에서 실행하세요.
+      ${emails.length > 1 ? `<br>수신자 <strong>${emails.length}명</strong> — 명령어를 순서대로 실행하세요.` : ''}
     </div>
     <div class="send-status" style="background:#FFF8E0;color:#6B5900;border:1px solid #F5D660;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:2px;">
       ⚠️ <strong>이메일 주의</strong>: 카카오워크 <strong>가입 시 인증한 이메일</strong>만 유효합니다.<br>
@@ -1536,7 +1547,7 @@ curl -s -X POST \\
     </div>
     ${dataUrlWarning}
     <div class="curl-block" style="margin-top:8px">
-      ${curlBox('전송 명령어 (1단계로 완료)', cmd)}
+      ${cmdBoxes}
     </div>
     <div class="send-hint" style="margin-top:6px">
       💡 명령어 블록을 클릭하면 클립보드에 복사됩니다.<br>
@@ -1546,13 +1557,17 @@ curl -s -X POST \\
 
 function sendMessage() {
   const appKey = document.getElementById('sendAppKey').value.trim();
-  const email  = document.getElementById('sendEmail').value.trim();
+  const rawEmails = document.getElementById('sendEmail').value.trim();
 
-  if (!appKey) { toast('App Key를 입력해주세요.'); return; }
-  if (!email)  { toast('수신자 이메일을 입력해주세요.'); return; }
+  if (!appKey)    { toast('App Key를 입력해주세요.'); return; }
+  if (!rawEmails) { toast('수신자 이메일을 입력해주세요.'); return; }
   if (blocks.length === 0) { toast('블럭을 먼저 추가해주세요.'); return; }
 
-  setResult(buildCurlGuide(appKey, email));
+  const emails = rawEmails.split(',').map(e => e.trim()).filter(Boolean);
+  const invalid = emails.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
+  if (invalid.length) { toast(`올바르지 않은 이메일: ${invalid[0]}`); return; }
+
+  setResult(buildCurlGuide(appKey, emails));
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
