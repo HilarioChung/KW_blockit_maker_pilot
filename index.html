@@ -118,6 +118,15 @@
     .palette-item[draggable="true"] { cursor: grab; }
     .palette-item[draggable="true"]:active { cursor: grabbing; }
     .palette-item.dragging { opacity: 0.45; }
+    .palette-item.coming-soon { cursor: not-allowed; opacity: 0.55; position: relative; }
+    .palette-item.coming-soon:hover { background: inherit; }
+    .palette-item.coming-soon:active { background: inherit; }
+    .coming-soon-badge {
+      display: inline-block; margin-left: 6px;
+      font-size: 9px; font-weight: 700; letter-spacing: 0.3px;
+      background: #ccc; color: #555; padding: 1px 5px; border-radius: 4px;
+      vertical-align: middle;
+    }
     .palette-item-name {
       font-size: 13px;
       font-weight: 700;
@@ -926,24 +935,28 @@ function buildForm(b, i) {
 
     case 'image_link': {
       if (b._src === 'ai') return `
-        <div class="fg">
-          <label class="fl">생성된 이미지 URL / Data URL</label>
-          <input class="fi" type="text" id="imgUrl_${i}" value="${eh(b.url)}" placeholder="생성 후 자동 입력됩니다"
-            oninput="blocks[${i}].url=this.value;updateOutput()" readonly>
-          <div class="hint">권장 비율: 가로 : 세로 = 2 : 1</div>
-        </div>
-        <div class="ai-gen-wrap">
-          <div class="ai-gen-label">✨ Gemini AI 이미지 생성</div>
-          <div class="ai-gen-key-row">
-            <input class="fi" id="geminiKey_${i}" type="password" placeholder="Gemini API Key"
-              value="${eh(localStorage.getItem('gemini_api_key')||'')}"
-              oninput="localStorage.setItem('gemini_api_key',this.value)">
+        <div style="position:relative;border-radius:8px;overflow:hidden;">
+          <div style="opacity:0.35;pointer-events:none;user-select:none;">
+            <div class="fg">
+              <label class="fl">생성된 이미지 URL / Data URL</label>
+              <input class="fi" type="text" placeholder="생성 후 자동 입력됩니다" readonly>
+            </div>
+            <div class="ai-gen-wrap">
+              <div class="ai-gen-label">✨ Gemini AI 이미지 생성</div>
+              <div class="ai-gen-key-row">
+                <input class="fi" type="password" placeholder="Gemini API Key">
+              </div>
+              <div class="ai-gen-row">
+                <input class="fi" placeholder="예: 밝은 사무실에서 회의하는 사람들">
+                <button class="btn-ai-gen">생성</button>
+              </div>
+            </div>
           </div>
-          <div class="ai-gen-row">
-            <input class="fi" id="aiPrompt_${i}" placeholder="예: 밝은 사무실에서 회의하는 사람들">
-            <button class="btn-ai-gen" id="btnAiGen_${i}" onclick="generateImage(${i})">생성</button>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:rgba(255,255,255,0.6);backdrop-filter:blur(2px);">
+            <div style="font-size:22px;">🚧</div>
+            <div style="font-size:13px;font-weight:700;color:#555;">준비중</div>
+            <div style="font-size:11px;color:#888;text-align:center;line-height:1.5;">Vertex AI Imagen 연동 예정</div>
           </div>
-          <div class="ai-gen-hint">⚠️ AI 생성 이미지는 미리보기 전용입니다. 실제 봇 전송 시 공개 URL로 교체하세요.</div>
         </div>`;
 
       if (b._src === 'upload') return `
@@ -1474,7 +1487,10 @@ function toggleKeyVisibility() {
   document.getElementById('btnEye').textContent = isHidden ? '🙈' : '👁';
 }
 function clearAppKey() {
-  document.getElementById('sendAppKey').value = '';
+  const inp = document.getElementById('sendAppKey');
+  inp.value = '';
+  inp.type = 'password';
+  document.getElementById('btnEye').textContent = '👁';
   localStorage.removeItem('kw_app_key');
   toast('App Key가 삭제되었습니다.');
 }
@@ -1564,6 +1580,7 @@ function sendMessage() {
   if (blocks.length === 0) { toast('블럭을 먼저 추가해주세요.'); return; }
 
   const emails = rawEmails.split(',').map(e => e.trim()).filter(Boolean);
+  if (emails.length === 0) { toast('유효한 이메일을 입력해주세요.'); return; }
   const invalid = emails.filter(e => !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e));
   if (invalid.length) { toast(`올바르지 않은 이메일: ${invalid[0]}`); return; }
 
@@ -1749,15 +1766,21 @@ function closeTemplateMenu() {
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 function init() {
   // Palette
-  document.getElementById('palette').innerHTML = BLOCK_META.map(m => `
-    <div class="palette-item" draggable="true"
-         ondragstart="paletteDragStart(event,'${m.type}')"
-         ondragend="paletteDragEnd(event)"
-         onclick="addBlock('${m.type}')">
-      <div class="palette-item-name">${m.emoji} ${m.name}</div>
-      <div class="palette-item-desc">${m.desc}</div>
-    </div>
-  `).join('');
+  document.getElementById('palette').innerHTML = BLOCK_META.map(m => {
+    if (m.type === 'image_link_ai') return `
+      <div class="palette-item coming-soon">
+        <div class="palette-item-name">${m.emoji} ${m.name}<span class="coming-soon-badge">준비중</span></div>
+        <div class="palette-item-desc">${m.desc}</div>
+      </div>`;
+    return `
+      <div class="palette-item" draggable="true"
+           ondragstart="paletteDragStart(event,'${m.type}')"
+           ondragend="paletteDragEnd(event)"
+           onclick="addBlock('${m.type}')">
+        <div class="palette-item-name">${m.emoji} ${m.name}</div>
+        <div class="palette-item-desc">${m.desc}</div>
+      </div>`;
+  }).join('');
 
   // Sidebar template list
   document.getElementById('template-list').innerHTML = TEMPLATES.map((t, i) => `
