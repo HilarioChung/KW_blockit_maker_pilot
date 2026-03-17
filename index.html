@@ -1,0 +1,1710 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>카카오워크 블럭킷 메이커</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --kw-yellow:   #FFBE00;
+      --kw-yellow-d: #E5AB00;
+      --kw-dark:     #1B1A17;
+      --kw-dark2:    #2C2B27;
+      --kw-ink:      #1A1A1A;
+      --kw-gray1:    #F4F4F6;
+      --kw-gray2:    #EAEAED;
+      --kw-gray3:    #D2D2D8;
+      --kw-gray4:    #9A9AA8;
+      --kw-border:   #E2E2E8;
+      --kw-chat-bg:  #D5D8E0;
+      --kw-red:      #C62828;
+      --kw-blue:     #1565C0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', Helvetica, sans-serif;
+      background: var(--kw-gray2);
+      color: var(--kw-ink);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ─── App Header ─── */
+    .app-header {
+      background: var(--kw-dark);
+      padding: 0 20px;
+      height: 52px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 10;
+    }
+    .logo-wrap { display: flex; align-items: center; gap: 10px; }
+    .logo-badge {
+      background: var(--kw-yellow);
+      color: var(--kw-dark);
+      font-size: 13px;
+      font-weight: 900;
+      padding: 3px 9px;
+      border-radius: 5px;
+      letter-spacing: -0.3px;
+    }
+    .logo-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.3px;
+    }
+    .logo-subtitle {
+      font-size: 11px;
+      color: var(--kw-gray4);
+      margin-top: 1px;
+    }
+    .header-actions { display: flex; gap: 8px; }
+    .btn-header {
+      padding: 6px 13px;
+      background: var(--kw-dark2);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #ccc;
+      transition: all 0.15s;
+    }
+    .btn-header:hover { background: #3a3932; color: #fff; }
+    .btn-header.accent {
+      background: var(--kw-yellow);
+      color: var(--kw-dark);
+      border-color: transparent;
+    }
+    .btn-header.accent:hover { background: var(--kw-yellow-d); }
+
+    /* ─── Main Layout ─── */
+    .main { display: flex; flex: 1; overflow: hidden; }
+
+    /* ─── Left Palette ─── */
+    .palette-panel {
+      width: 192px;
+      background: #fff;
+      border-right: 1px solid var(--kw-border);
+      overflow-y: auto;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+    }
+    .section-label {
+      font-size: 10px;
+      font-weight: 800;
+      color: var(--kw-gray4);
+      letter-spacing: 1px;
+      padding: 14px 14px 6px;
+      text-transform: uppercase;
+    }
+    .palette-item {
+      padding: 8px 14px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--kw-gray1);
+      transition: background 0.1s;
+      user-select: none;
+    }
+    .palette-item:hover { background: #FFFAEB; }
+    .palette-item:active { background: var(--kw-yellow); }
+    .palette-item[draggable="true"] { cursor: grab; }
+    .palette-item[draggable="true"]:active { cursor: grabbing; }
+    .palette-item.dragging { opacity: 0.45; }
+    .palette-item-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--kw-ink);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .palette-item-desc { font-size: 11px; color: var(--kw-gray4); margin-top: 1px; }
+
+    .palette-divider {
+      height: 1px;
+      background: var(--kw-gray2);
+      margin: 4px 0;
+    }
+
+    /* ─── Editor Panel ─── */
+    .editor-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--kw-gray2);
+    }
+    .notif-bar {
+      background: #fff;
+      border-bottom: 1px solid var(--kw-border);
+      padding: 10px 16px;
+      flex-shrink: 0;
+    }
+    .notif-bar label { font-size: 11px; font-weight: 800; color: var(--kw-gray4); display: block; margin-bottom: 4px; letter-spacing: 0.2px; }
+
+    .block-scroll { flex: 1; overflow-y: auto; padding: 12px; transition: background 0.15s; }
+    .block-scroll.drop-zone { background: #FFFAEB; outline: 2px dashed var(--kw-yellow); outline-offset: -4px; }
+
+    .empty-state {
+      text-align: center;
+      padding: 64px 24px;
+    }
+    .empty-icon { font-size: 40px; margin-bottom: 14px; }
+    .empty-title { font-size: 15px; font-weight: 700; color: #c4c4cc; margin-bottom: 6px; }
+    .empty-desc { font-size: 12px; line-height: 1.7; color: #c4c4cc; }
+
+    /* ─── Block Card ─── */
+    .block-card {
+      background: #fff;
+      border-radius: 10px;
+      margin-bottom: 8px;
+      border: 1px solid var(--kw-border);
+      overflow: hidden;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .block-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .block-card.drag-over {
+      border: 2px dashed var(--kw-yellow);
+      background: #FFFDF0;
+      box-shadow: 0 0 0 3px rgba(255,190,0,0.15);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      background: var(--kw-gray1);
+      border-bottom: 1px solid var(--kw-border);
+      cursor: grab;
+      user-select: none;
+    }
+    .card-header:active { cursor: grabbing; }
+    .card-header-left { display: flex; align-items: center; gap: 7px; }
+    .drag-dots { color: #ccc; font-size: 15px; line-height: 1; }
+    .block-badge {
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 9px;
+      border-radius: 20px;
+      background: var(--kw-dark);
+      color: var(--kw-yellow);
+      letter-spacing: 0.2px;
+    }
+    .card-controls { display: flex; gap: 2px; }
+    .ctrl-btn {
+      width: 26px; height: 26px;
+      border: none; background: none;
+      border-radius: 5px;
+      font-size: 13px;
+      cursor: pointer;
+      color: #aaa;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s;
+    }
+    .ctrl-btn:hover { background: var(--kw-gray2); color: #555; }
+    .ctrl-btn.del:hover { background: #FFF0F0; color: var(--kw-red); }
+
+    .card-body { padding: 12px; }
+
+    /* ─── Form Elements ─── */
+    .fg { margin-bottom: 9px; }
+    .fg:last-child { margin-bottom: 0; }
+    .fl {
+      font-size: 11px; font-weight: 800; color: var(--kw-gray4);
+      display: block; margin-bottom: 4px; letter-spacing: 0.2px;
+    }
+    .fi, .fs, .fta {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--kw-border);
+      border-radius: 6px;
+      font-size: 13px;
+      color: var(--kw-ink);
+      outline: none;
+      font-family: inherit;
+      background: #fff;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .fi:focus, .fs:focus, .fta:focus {
+      border-color: var(--kw-yellow);
+      box-shadow: 0 0 0 3px rgba(255,190,0,0.12);
+    }
+    .fta { resize: vertical; min-height: 58px; line-height: 1.5; }
+    .fc-label { display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; color: var(--kw-ink); }
+    .fc-label input[type=checkbox] { accent-color: var(--kw-yellow); width: 14px; height: 14px; }
+
+    .sub-block {
+      background: var(--kw-gray1);
+      border: 1px solid var(--kw-border);
+      border-radius: 7px;
+      padding: 10px;
+      margin-bottom: 6px;
+    }
+    .sub-header {
+      font-size: 11px; font-weight: 800; color: var(--kw-gray4);
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px; letter-spacing: 0.2px;
+    }
+    .btn-xs {
+      font-size: 11px; padding: 2px 8px;
+      border: 1px solid var(--kw-border); border-radius: 4px;
+      background: #fff; cursor: pointer; color: #777;
+      transition: all 0.1s;
+    }
+    .btn-xs:hover { background: #FFF0F0; color: var(--kw-red); border-color: #f5c6c6; }
+    .add-btn {
+      width: 100%; padding: 7px;
+      border: 1.5px dashed var(--kw-gray3);
+      border-radius: 6px;
+      background: none; cursor: pointer;
+      font-size: 12px; color: var(--kw-gray4);
+      margin-top: 4px; transition: all 0.15s;
+    }
+    .add-btn:hover { border-color: var(--kw-yellow); color: #888; background: #FFFDF0; }
+
+    .hint { font-size: 11px; color: var(--kw-gray4); margin-top: 4px; }
+
+    /* ─── Validation Banner ─── */
+    .val-wrap { padding: 0 12px 4px; }
+    .val-group-label {
+      font-size: 10px; font-weight: 800;
+      letter-spacing: 0.3px;
+      padding: 6px 10px 4px;
+      margin-top: 4px;
+    }
+    .val-group-label.error-label { color: #7A1A1A; }
+    .val-group-label.warn-label  { color: #6B5900; }
+    .val-item {
+      display: flex; align-items: flex-start; gap: 6px;
+      background: #FFF8E0;
+      border: 1px solid #F5D660;
+      border-left: 3px solid #F5A623;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin-bottom: 3px;
+      font-size: 12px;
+      color: #6B5900;
+      line-height: 1.5;
+    }
+    .val-item.error {
+      background: #FFF0F0;
+      border-color: #F5C6C6;
+      border-left-color: var(--kw-red);
+      color: #7A1A1A;
+    }
+
+    /* ─── Right Panel ─── */
+    .right-panel {
+      width: 348px;
+      display: flex;
+      flex-direction: column;
+      border-left: 1px solid var(--kw-border);
+      flex-shrink: 0;
+      background: #fff;
+    }
+    .tabs {
+      display: flex;
+      background: #fff;
+      border-bottom: 1px solid var(--kw-border);
+      flex-shrink: 0;
+    }
+    .tab {
+      flex: 1; padding: 11px 0;
+      border: none; background: none;
+      font-size: 13px; font-weight: 700;
+      color: var(--kw-gray4); cursor: pointer;
+      border-bottom: 2.5px solid transparent;
+      transition: all 0.15s;
+    }
+    .tab.active { color: var(--kw-ink); border-bottom-color: var(--kw-yellow); }
+
+    /* ─── Preview ─── */
+    .preview-wrap {
+      flex: 1; overflow-y: auto;
+      padding: 20px 16px;
+      background: var(--kw-chat-bg);
+    }
+    .chat-row { display: flex; gap: 8px; align-items: flex-start; }
+    .bot-avatar {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--kw-dark);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; flex-shrink: 0;
+      border: 2px solid var(--kw-yellow);
+    }
+    .bot-body { flex: 1; min-width: 0; }
+    .bot-name { font-size: 11px; color: #888; margin-bottom: 4px; font-weight: 700; }
+    .message-bubble {
+      background: #fff;
+      border-radius: 2px 12px 12px 12px;
+      overflow: hidden;
+      max-width: 275px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+    }
+    .bubble-empty {
+      padding: 28px 16px;
+      text-align: center;
+      color: #bbb;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* ── Preview Block Styles ── */
+    .pv-header { padding: 11px 14px; font-size: 14px; font-weight: 800; line-height: 1.3; }
+    .pv-header.white  { background: #fff; color: var(--kw-ink); border-bottom: 1px solid #f0f0f0; }
+    .pv-header.blue   { background: var(--kw-blue); color: #fff; }
+    .pv-header.red    { background: var(--kw-red);  color: #fff; }
+    .pv-header.yellow { background: var(--kw-yellow); color: var(--kw-dark); }
+
+    .pv-text { padding: 9px 14px; font-size: 13px; line-height: 1.6; color: #222; word-break: break-word; }
+
+    .pv-image { width: 100%; aspect-ratio: 2/1; object-fit: cover; display: block; }
+    .pv-image-ph {
+      width: 100%; aspect-ratio: 2/1;
+      background: var(--kw-gray2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; color: var(--kw-gray4);
+    }
+
+    .pv-divider { height: 1px; background: #f0f0f0; margin: 2px 0; }
+
+    .pv-btn-wrap { padding: 7px 14px; }
+    .pv-btn {
+      display: block; width: 100%;
+      padding: 8px 12px;
+      border-radius: 7px;
+      font-size: 13px; font-weight: 700;
+      text-align: center;
+    }
+    .pv-btn.default { background: var(--kw-gray1); color: #555; }
+    .pv-btn.primary { background: var(--kw-yellow); color: var(--kw-dark); }
+    .pv-btn.danger  { background: var(--kw-red);   color: #fff; }
+
+    .pv-action { padding: 7px 14px; display: flex; gap: 6px; }
+    .pv-action .pv-btn { flex: 1; }
+
+    .pv-desc { padding: 5px 14px; display: flex; gap: 8px; align-items: flex-start; }
+    .pv-term {
+      font-size: 12px; color: #888;
+      flex-shrink: 0; width: 60px;
+      padding-top: 1px; word-break: break-all; line-height: 1.5;
+    }
+    .pv-term.accent { font-weight: 800; color: #222; }
+    .pv-desc-content { font-size: 13px; color: #222; flex: 1; line-height: 1.5; word-break: break-word; }
+
+    .pv-section { padding: 9px 14px; display: flex; gap: 8px; align-items: flex-start; }
+    .pv-section-text { flex: 1; font-size: 13px; color: #222; line-height: 1.5; word-break: break-word; }
+    .pv-section-img {
+      width: 48px; height: 48px;
+      border-radius: 6px; object-fit: cover; flex-shrink: 0;
+      background: var(--kw-gray2);
+    }
+
+    .pv-context { padding: 6px 14px; display: flex; gap: 7px; align-items: center; }
+    .pv-ctx-img {
+      width: 24px; height: 24px;
+      border-radius: 50%; object-fit: cover; flex-shrink: 0;
+      background: var(--kw-gray2);
+    }
+    .pv-ctx-text { font-size: 11px; color: #aaa; line-height: 1.4; word-break: break-word; }
+
+    /* ─── JSON Panel ─── */
+    .json-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+    .json-output {
+      flex: 1;
+      width: 100%;
+      padding: 12px;
+      font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+      font-size: 11.5px;
+      line-height: 1.65;
+      border: none;
+      background: #1B1A17;
+      color: #F5E6B0;
+      resize: none;
+      outline: none;
+    }
+    .json-actions {
+      padding: 10px 12px;
+      background: #fff;
+      border-top: 1px solid var(--kw-border);
+      display: flex;
+      gap: 8px;
+    }
+    .btn-copy {
+      flex: 1; padding: 10px;
+      background: var(--kw-yellow); border: none;
+      border-radius: 8px; font-size: 14px;
+      font-weight: 800; cursor: pointer;
+      color: var(--kw-dark); transition: background 0.15s;
+    }
+    .btn-copy:hover { background: var(--kw-yellow-d); }
+    .btn-copy:active { transform: scale(0.98); }
+    .btn-dl {
+      padding: 10px 14px;
+      background: var(--kw-gray1); border: 1px solid var(--kw-border);
+      border-radius: 8px; font-size: 13px;
+      cursor: pointer; color: #555;
+      font-weight: 600;
+    }
+    .btn-dl:hover { background: var(--kw-gray2); }
+
+    /* ─── Send Panel ─── */
+    .send-panel {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 14px;
+    }
+    .send-section-title {
+      font-size: 11px; font-weight: 800; color: var(--kw-gray4);
+      letter-spacing: 0.3px; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .send-section { display: flex; flex-direction: column; gap: 6px; }
+    .send-key-row { display: flex; gap: 6px; }
+    .send-key-row .fi { flex: 1; }
+    .btn-eye {
+      padding: 0 10px; background: var(--kw-gray1);
+      border: 1px solid var(--kw-border); border-radius: 7px;
+      cursor: pointer; font-size: 14px; color: #555;
+    }
+    .btn-eye:hover { background: var(--kw-gray2); }
+    .send-hint { font-size: 11px; color: var(--kw-gray4); line-height: 1.5; }
+    .send-hint a { color: var(--kw-blue); }
+    .btn-send {
+      width: 100%; padding: 12px;
+      background: var(--kw-yellow); border: none;
+      border-radius: 8px; font-size: 14px;
+      font-weight: 800; cursor: pointer;
+      color: var(--kw-dark); transition: background 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-send:hover { background: var(--kw-yellow-d); }
+    .btn-send:active { transform: scale(0.98); }
+    .btn-send:disabled { background: var(--kw-gray3); color: #aaa; cursor: not-allowed; transform: none; }
+    .send-divider { height: 1px; background: var(--kw-border); }
+    .send-result { display: none; flex-direction: column; gap: 10px; }
+    .send-result.visible { display: flex; }
+    .send-status {
+      padding: 10px 12px; border-radius: 8px;
+      font-size: 12px; font-weight: 700; line-height: 1.5;
+    }
+    .send-status.success { background: #E8F5E9; color: #2E7D32; }
+    .send-status.error   { background: #FFEBEE; color: #C62828; }
+    .send-status.info    { background: #E3F2FD; color: #1565C0; }
+    .curl-block { display: flex; flex-direction: column; gap: 8px; }
+    .curl-step-label {
+      font-size: 11px; font-weight: 800; color: var(--kw-gray4); margin-bottom: 2px;
+    }
+    .curl-code {
+      background: var(--kw-dark); color: #F5E6B0;
+      padding: 8px 10px; border-radius: 6px;
+      font-family: 'Menlo', 'Monaco', monospace;
+      font-size: 10px; line-height: 1.6;
+      word-break: break-all; white-space: pre-wrap;
+      cursor: pointer; position: relative;
+    }
+    .curl-code:hover::after {
+      content: '클릭하여 복사';
+      position: absolute; top: 4px; right: 6px;
+      font-size: 10px; color: var(--kw-yellow);
+      font-family: sans-serif;
+    }
+    /* ─── Gemini AI Image Generation ─── */
+    .ai-gen-wrap {
+      border: 1px dashed var(--kw-gray3);
+      border-radius: 8px; padding: 10px;
+      background: #FFFDF0; margin-top: 6px;
+    }
+    .ai-gen-label {
+      font-size: 11px; font-weight: 800;
+      color: #B8860B; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .ai-gen-row { display: flex; gap: 6px; }
+    .ai-gen-row .fi { flex: 1; font-size: 12px; }
+    .btn-ai-gen {
+      padding: 0 12px;
+      background: var(--kw-dark); color: var(--kw-yellow);
+      border: none; border-radius: 7px;
+      font-size: 12px; font-weight: 800;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+      transition: opacity 0.15s;
+    }
+    .btn-ai-gen:hover { opacity: 0.85; }
+    .btn-ai-gen:disabled { opacity: 0.4; cursor: not-allowed; }
+    .ai-gen-hint { font-size: 10px; color: #aaa; margin-top: 4px; }
+    .ai-gen-key-row { display: flex; gap: 6px; margin-bottom: 6px; }
+    .ai-gen-key-row .fi { flex: 1; font-size: 12px; }
+
+    /* ─── Image Upload ─── */
+    .upload-input { display: none; }
+    .upload-label {
+      display: block; width: 100%;
+      padding: 16px 12px;
+      background: var(--kw-gray1);
+      border: 2px dashed var(--kw-gray3);
+      border-radius: 8px;
+      font-size: 13px; font-weight: 600;
+      color: var(--kw-gray4); text-align: center;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .upload-label:hover {
+      border-color: var(--kw-yellow);
+      background: #FFFAEB;
+      color: var(--kw-dark);
+    }
+
+    /* ─── Color Chips ─── */
+    .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
+    .chip {
+      padding: 4px 11px;
+      border-radius: 20px;
+      border: 2px solid transparent;
+      font-size: 11px; font-weight: 700;
+      cursor: pointer; transition: border-color 0.15s, transform 0.1s;
+    }
+    .chip:hover { transform: scale(1.05); }
+    .chip.selected { border-color: var(--kw-ink) !important; }
+
+    /* ─── Template Dropdown ─── */
+    .tpl-dropdown {
+      position: fixed;
+      top: 52px;
+      right: 20px;
+      background: #fff;
+      border: 1px solid var(--kw-border);
+      border-radius: 10px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      z-index: 100;
+      min-width: 220px;
+      overflow: hidden;
+    }
+    .tpl-dropdown-title {
+      padding: 12px 16px 8px;
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--kw-gray4);
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+    .tpl-item {
+      padding: 10px 16px;
+      cursor: pointer;
+      border-top: 1px solid var(--kw-gray1);
+      transition: background 0.1s;
+    }
+    .tpl-item:hover { background: #FFFAEB; }
+    .tpl-item-name { font-size: 13px; font-weight: 700; color: var(--kw-ink); }
+    .tpl-item-desc { font-size: 11px; color: var(--kw-gray4); margin-top: 1px; }
+    .tpl-overlay {
+      position: fixed; inset: 0;
+      z-index: 99;
+    }
+
+    /* ─── Toast ─── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: var(--kw-dark); color: #fff;
+      padding: 10px 22px;
+      border-radius: 24px; font-size: 13px; font-weight: 600;
+      opacity: 0; transition: all 0.25s;
+      z-index: 9999; pointer-events: none;
+    }
+    .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    /* ─── Scrollbar ─── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--kw-gray3); border-radius: 4px; }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<!-- ─── Header ─── -->
+<div class="app-header">
+  <div class="logo-wrap">
+    <div>
+      <div class="logo-wrap">
+        <span class="logo-badge">KW</span>
+        <span class="logo-title">블럭킷 메이커</span>
+      </div>
+      <div class="logo-subtitle">블럭을 조합해 카카오워크 봇 메시지를 직관적으로 만드세요</div>
+    </div>
+  </div>
+  <div class="header-actions">
+    <button class="btn-header" onclick="clearAll()">초기화</button>
+    <button class="btn-header accent" onclick="toggleTemplateMenu(event)">📋 템플릿</button>
+  </div>
+</div>
+
+<!-- Template Dropdown (hidden by default) -->
+<div id="tplOverlay" class="tpl-overlay hidden" onclick="closeTemplateMenu()"></div>
+<div id="tplDropdown" class="tpl-dropdown hidden">
+  <div class="tpl-dropdown-title">예제 템플릿</div>
+  <div id="tplItems"></div>
+</div>
+
+<div class="main">
+
+  <!-- ─── Left Palette ─── -->
+  <div class="palette-panel">
+    <div class="section-label">블럭 추가</div>
+    <div id="palette"></div>
+    <div class="palette-divider"></div>
+    <div class="section-label">템플릿</div>
+    <div id="template-list"></div>
+  </div>
+
+  <!-- ─── Middle Editor ─── -->
+  <div class="editor-panel">
+    <div class="notif-bar">
+      <label>📣 알림 텍스트 <span style="color:#E53935;font-weight:900">*필수</span> — 채팅방 목록 및 푸시 알림에 표시</label>
+      <input type="text" class="fi" id="notifText"
+        placeholder="예: 새로운 공지사항이 있습니다."
+        value="새로운 메시지가 도착했습니다."
+        oninput="updateOutput()">
+    </div>
+    <div class="block-scroll" id="blockScroll">
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">🧱</div>
+        <div class="empty-title">블럭을 추가해보세요</div>
+        <div class="empty-desc">왼쪽에서 블럭 유형을 클릭하거나<br>상단 템플릿을 선택해 시작하세요.</div>
+      </div>
+      <div id="valBanners" class="val-wrap"></div>
+      <div id="blockList"></div>
+    </div>
+  </div>
+
+  <!-- ─── Right Panel ─── -->
+  <div class="right-panel">
+    <div class="tabs">
+      <button class="tab active" id="tab-preview" onclick="switchTab('preview')">미리보기</button>
+      <button class="tab" id="tab-json" onclick="switchTab('json')">JSON</button>
+      <button class="tab" id="tab-send" onclick="switchTab('send')">전송하기</button>
+    </div>
+
+    <!-- Preview -->
+    <div class="preview-wrap" id="panel-preview">
+      <div class="chat-row">
+        <div class="bot-avatar">🤖</div>
+        <div class="bot-body">
+          <div class="bot-name">카카오워크 봇</div>
+          <div class="message-bubble" id="previewBubble">
+            <div class="bubble-empty">블럭을 추가하면<br>여기에 미리보기가 표시됩니다</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- JSON -->
+    <div class="json-panel hidden" id="panel-json">
+      <textarea class="json-output" id="jsonOut" readonly spellcheck="false"></textarea>
+      <div class="json-actions">
+        <button class="btn-copy" onclick="copyJSON()">📋 JSON 복사하기</button>
+        <button class="btn-dl" onclick="downloadJSON()" title="JSON 파일로 저장">⬇</button>
+      </div>
+    </div>
+
+    <!-- Send -->
+    <div class="send-panel hidden" id="panel-send">
+
+      <!-- API Key -->
+      <div class="send-section">
+        <div class="send-section-title">🔑 App Key (봇 API 키)</div>
+        <div class="send-key-row">
+          <input class="fi" id="sendAppKey" type="password" placeholder="발급받은 App Key를 입력하세요"
+            oninput="saveAppKey()">
+          <button class="btn-eye" id="btnEye" onclick="toggleKeyVisibility()" title="보기/숨기기">👁</button>
+        </div>
+        <div class="send-hint">
+          카카오워크 관리자 페이지 → 봇 관리 → 앱 정보에서 확인할 수 있습니다.<br>
+          입력한 키는 이 브라우저에만 저장됩니다 (localStorage).
+        </div>
+      </div>
+
+      <div class="send-divider"></div>
+
+      <!-- Recipient -->
+      <div class="send-section">
+        <div class="send-section-title">📨 수신자</div>
+        <input class="fi" id="sendEmail" type="email" placeholder="수신자 이메일 (예: user@company.com)">
+        <div class="send-hint">봇이 해당 멤버와 1:1 대화방을 열고 메시지를 전송합니다.</div>
+      </div>
+
+      <div class="send-divider"></div>
+
+      <!-- Send button -->
+      <button class="btn-send" id="btnSend" onclick="sendMessage()">
+        <span>📋 전송 가이드 생성하기</span>
+      </button>
+
+      <!-- Result -->
+      <div class="send-result" id="sendResult"></div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STATE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let blocks = [];
+let dragSrc = null;        // 카드 재정렬 드래그 소스 인덱스
+let paletteDragType = null; // 팔레트에서 드래그 중인 블럭 타입
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BLOCK META & DEFAULTS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const BLOCK_META = [
+  { type: 'header',      emoji: '📌', name: '헤더',      desc: '메시지 최상단 제목' },
+  { type: 'text',             emoji: '📝', name: '텍스트',          desc: '일반 텍스트 내용' },
+  { type: 'image_link_ai',   emoji: '✨', name: '이미지 (AI생성)',  desc: 'Gemini로 이미지 생성' },
+  { type: 'image_link_upload', emoji: '📁', name: '이미지 (업로드)', desc: '로컬 파일 업로드' },
+  { type: 'divider',          emoji: '➖', name: '구분선',          desc: '블럭 사이 구분선' },
+  { type: 'button',      emoji: '🔘', name: '버튼',       desc: '단일 클릭 버튼' },
+  { type: 'action',      emoji: '🔲', name: '버튼 그룹',  desc: '2~3개 버튼 묶음' },
+  { type: 'description', emoji: '📋', name: '설명',       desc: '레이블 + 내용 쌍' },
+  { type: 'section',     emoji: '📄', name: '섹션',       desc: '텍스트 + 썸네일 이미지' },
+  { type: 'context',     emoji: '💬', name: '컨텍스트',   desc: '아이콘 + 보조 텍스트' },
+];
+const metaMap = Object.fromEntries(BLOCK_META.map(m => [m.type, m]));
+// image_link_ai / image_link_upload 둘 다 실제 블럭 type은 'image_link' 이므로 역방향 조회용
+metaMap['image_link'] = { emoji: '🖼', name: '이미지' };
+
+function makeDefault(type) {
+  switch (type) {
+    case 'header':      return { type:'header', text:'헤더 제목을 입력하세요', style:'blue' };
+    case 'text':        return { type:'text', text:'텍스트 내용을 입력하세요.' };
+    case 'image_link':        return { type:'image_link', _src:'url',    url:'' };
+    case 'image_link_ai':     return { type:'image_link', _src:'ai',     url:'' };
+    case 'image_link_upload': return { type:'image_link', _src:'upload', url:'' };
+    case 'divider':     return { type:'divider' };
+    case 'button':      return { type:'button', text:'버튼', style:'default', action:{ type:'open_system_browser', url:'https://example.com' } };
+    case 'action':      return { type:'action', elements:[
+                          { type:'button', text:'확인', style:'primary', action:{ type:'open_system_browser', url:'https://example.com' } },
+                          { type:'button', text:'취소', style:'default', action:{ type:'open_system_browser', url:'https://example.com' } },
+                        ]};
+    case 'description': return { type:'description', term:'항목', accent:false, content:{ type:'text', text:'내용을 입력하세요.' } };
+    case 'section':     return { type:'section', content:{ type:'text', text:'섹션 내용을 입력하세요.' }, accessory:null };
+    case 'context':     return { type:'context', content:{ type:'text', text:'보조 텍스트를 입력하세요.' }, image:{ type:'image_link', url:'' } };
+    default:            console.warn(`makeDefault: unknown block type "${type}"`); return null;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// BLOCK CRUD (structural → full re-render)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function addBlock(type) {
+  const block = makeDefault(type);
+  if (!block) return;
+  blocks.push(block);
+  syncAll();
+}
+function removeBlock(idx) {
+  blocks.splice(idx, 1);
+  syncAll();
+}
+function moveBlock(idx, dir) {
+  if (idx < 0 || idx >= blocks.length) return;
+  const n = idx + dir;
+  if (n < 0 || n >= blocks.length) return;
+  [blocks[idx], blocks[n]] = [blocks[n], blocks[idx]];
+  syncAll();
+}
+function clearAll() {
+  if (blocks.length && !confirm('모든 블럭을 초기화할까요?')) return;
+  blocks = [];
+  syncAll();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// RENDER STRATEGY — key insight:
+//   updateOutput()  → preview + JSON only (called from oninput/onchange)
+//   syncAll()       → editor + preview + JSON (called from add/remove/move)
+//   Never call renderEditor() from a form input handler → prevents focus loss
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function updateOutput() {
+  renderPreview();
+  renderJSON();
+  renderValidation();
+}
+function syncAll() {
+  renderEditor();
+  renderPreview();
+  renderJSON();
+  renderValidation();
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EDITOR RENDERING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderEditor() {
+  const list  = document.getElementById('blockList');
+  const empty = document.getElementById('emptyState');
+  if (blocks.length === 0) {
+    empty.style.display = 'block';
+    list.innerHTML = '';
+    return;
+  }
+  empty.style.display = 'none';
+  list.innerHTML = blocks.map((b, i) => buildCard(b, i)).join('');
+  attachDragEvents();
+}
+
+function buildCard(b, i) {
+  const metaKey = b.type === 'image_link'
+    ? (b._src === 'ai' ? 'image_link_ai' : b._src === 'upload' ? 'image_link_upload' : 'image_link')
+    : b.type;
+  const meta = metaMap[metaKey] || metaMap[b.type];
+  const isFirst = i === 0, isLast = i === blocks.length - 1;
+  return `
+  <div class="block-card" data-idx="${i}">
+    <div class="card-header" draggable="true">
+      <div class="card-header-left">
+        <span class="drag-dots">⠿</span>
+        <span class="block-badge">${meta.emoji} ${meta.name}</span>
+      </div>
+      <div class="card-controls">
+        ${!isFirst ? `<button class="ctrl-btn" onclick="moveBlock(${i},-1)" title="위로">↑</button>` : ''}
+        ${!isLast  ? `<button class="ctrl-btn" onclick="moveBlock(${i},1)"  title="아래로">↓</button>` : ''}
+        <button class="ctrl-btn del" onclick="removeBlock(${i})" title="삭제">✕</button>
+      </div>
+    </div>
+    <div class="card-body">${buildForm(b, i)}</div>
+  </div>`;
+}
+
+function buildForm(b, i) {
+  // NOTE: oninput/onchange handlers call updateOutput() NOT syncAll()
+  // This preserves focus while keeping preview/JSON in sync.
+  // syncAll() is only called for structural changes (chip clicks, add/remove buttons).
+  switch (b.type) {
+
+    case 'header': return `
+      <div class="fg">
+        <label class="fl">헤더 텍스트 <span style="color:#bbb;font-weight:400">(최대 20자)</span></label>
+        <input class="fi" maxlength="20" value="${eh(b.text)}"
+          oninput="blocks[${i}].text=this.value;updateOutput()">
+      </div>
+      <div class="fg">
+        <label class="fl">배경 색상</label>
+        <div class="chip-row">
+          ${[['white','#fff','#333','흰색'],['blue','#1565C0','#fff','파랑'],['red','#C62828','#fff','빨강'],['yellow','#FFBE00','#333','노랑']].map(([s,bg,fg,label])=>
+            `<span class="chip ${b.style===s?'selected':''}"
+              style="background:${bg};color:${fg}"
+              onclick="blocks[${i}].style='${s}';syncAll()">${label}</span>`
+          ).join('')}
+        </div>
+      </div>`;
+
+    case 'text': return `
+      <div class="fg">
+        <label class="fl">텍스트 내용 <span style="color:#bbb;font-weight:400">(최대 500자)</span></label>
+        <textarea class="fta" maxlength="500"
+          oninput="blocks[${i}].text=this.value;updateOutput()">${eh(b.text)}</textarea>
+        <div class="hint">줄바꿈(Enter)이 그대로 미리보기에 반영됩니다.</div>
+      </div>`;
+
+    case 'image_link': {
+      if (b._src === 'ai') return `
+        <div class="fg">
+          <label class="fl">생성된 이미지 URL / Data URL</label>
+          <input class="fi" type="text" id="imgUrl_${i}" value="${eh(b.url)}" placeholder="생성 후 자동 입력됩니다"
+            oninput="blocks[${i}].url=this.value;updateOutput()" readonly>
+          <div class="hint">권장 비율: 가로 : 세로 = 2 : 1</div>
+        </div>
+        <div class="ai-gen-wrap">
+          <div class="ai-gen-label">✨ Gemini AI 이미지 생성</div>
+          <div class="ai-gen-key-row">
+            <input class="fi" id="geminiKey_${i}" type="password" placeholder="Gemini API Key"
+              value="${eh(localStorage.getItem('gemini_api_key')||'')}"
+              oninput="localStorage.setItem('gemini_api_key',this.value)">
+          </div>
+          <div class="ai-gen-row">
+            <input class="fi" id="aiPrompt_${i}" placeholder="예: 밝은 사무실에서 회의하는 사람들">
+            <button class="btn-ai-gen" id="btnAiGen_${i}" onclick="generateImage(${i})">생성</button>
+          </div>
+          <div class="ai-gen-hint">⚠️ AI 생성 이미지는 미리보기 전용입니다. 실제 봇 전송 시 공개 URL로 교체하세요.</div>
+        </div>`;
+
+      if (b._src === 'upload') return `
+        <div class="fg">
+          <label class="fl">이미지 파일 업로드</label>
+          <label class="upload-label" for="imgFile_${i}">
+            ${b.url ? '✅ 이미지 업로드 완료 — 다시 선택하려면 클릭' : '📁 클릭하여 이미지 파일 선택'}
+          </label>
+          <input type="file" id="imgFile_${i}" class="upload-input" accept="image/*"
+            onchange="handleImageUpload(${i}, this)">
+          <div class="hint">권장 비율: 가로 : 세로 = 2 : 1 | ⚠️ 업로드 이미지는 미리보기 전용입니다. 실제 봇 전송 시 공개 URL로 교체하세요.</div>
+        </div>`;
+
+      // fallback: URL 직접 입력 (_src === 'url' 또는 구버전 블럭)
+      return `
+        <div class="fg">
+          <label class="fl">이미지 URL</label>
+          <input class="fi" type="url" id="imgUrl_${i}" value="${eh(b.url)}" placeholder="https://example.com/image.png"
+            oninput="blocks[${i}].url=this.value;updateOutput()">
+          <div class="hint">권장 비율: 가로 : 세로 = 2 : 1</div>
+        </div>`;
+    }
+
+    case 'divider': return `
+      <div style="text-align:center;font-size:12px;color:#bbb;padding:4px 0">
+        구분선은 별도 설정이 없습니다.<br>
+        <span style="color:#f5a623;font-size:11px">⚠ 메시지의 첫/마지막 블럭으로는 사용 불가 (스펙)</span>
+      </div>`;
+
+    case 'button': return `
+      <div class="fg">
+        <label class="fl">버튼 텍스트 <span style="color:#bbb;font-weight:400">(최대 20자)</span></label>
+        <input class="fi" maxlength="20" value="${eh(b.text)}"
+          oninput="blocks[${i}].text=this.value;updateOutput()">
+      </div>
+      <div class="fg">
+        <label class="fl">스타일</label>
+        <select class="fs" onchange="blocks[${i}].style=this.value;updateOutput()">
+          <option value="default" ${b.style==='default'?'selected':''}>기본 (회색)</option>
+          <option value="primary" ${b.style==='primary'?'selected':''}>주요 (노란색)</option>
+          <option value="danger"  ${b.style==='danger' ?'selected':''}>위험 (빨간색)</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">링크 URL</label>
+        <input class="fi" type="url" value="${eh(b.action?.url||'')}" placeholder="https://example.com"
+          oninput="if(!blocks[${i}].action)blocks[${i}].action={type:'open_system_browser'};blocks[${i}].action.url=this.value;updateOutput()">
+      </div>`;
+
+    case 'action': {
+      const elems = b.elements || [];
+      return `
+        ${elems.map((el, bi) => `
+          <div class="sub-block">
+            <div class="sub-header">
+              버튼 ${bi+1}
+              ${elems.length > 2 ? `<button class="btn-xs" onclick="blocks[${i}].elements.splice(${bi},1);syncAll()">삭제</button>` : ''}
+            </div>
+            <div class="fg">
+              <label class="fl">텍스트</label>
+              <input class="fi" maxlength="20" value="${eh(el.text)}"
+                oninput="blocks[${i}].elements[${bi}].text=this.value;updateOutput()">
+            </div>
+            <div class="fg">
+              <label class="fl">스타일</label>
+              <select class="fs" onchange="blocks[${i}].elements[${bi}].style=this.value;updateOutput()">
+                <option value="default" ${el.style==='default'?'selected':''}>기본</option>
+                <option value="primary" ${el.style==='primary'?'selected':''}>주요</option>
+                <option value="danger"  ${el.style==='danger' ?'selected':''}>위험</option>
+              </select>
+            </div>
+            <div class="fg">
+              <label class="fl">링크 URL</label>
+              <input class="fi" type="url" value="${eh(el.action?.url||'')}" placeholder="https://example.com"
+                oninput="if(!blocks[${i}].elements[${bi}].action)blocks[${i}].elements[${bi}].action={type:'open_system_browser'};blocks[${i}].elements[${bi}].action.url=this.value;updateOutput()">
+            </div>
+          </div>
+        `).join('')}
+        ${elems.length < 3 ? `<button class="add-btn" onclick="blocks[${i}].elements.push({type:'button',text:'버튼',style:'default',action:{type:'open_system_browser',url:'https://example.com'}});syncAll()">+ 버튼 추가 (최대 3개)</button>` : ''}`;
+    }
+
+    case 'description': return `
+      <div class="fg">
+        <label class="fl">레이블 <span style="color:#bbb;font-weight:400">(최대 10자)</span></label>
+        <input class="fi" maxlength="10" value="${eh(b.term)}"
+          oninput="blocks[${i}].term=this.value;updateOutput()">
+      </div>
+      <div class="fg">
+        <label class="fl">내용</label>
+        <textarea class="fta" oninput="blocks[${i}].content.text=this.value;updateOutput()">${eh(b.content?.text||'')}</textarea>
+      </div>
+      <div class="fg">
+        <label class="fc-label">
+          <input type="checkbox" ${b.accent?'checked':''} onchange="blocks[${i}].accent=this.checked;updateOutput()">
+          레이블 강조 (굵게)
+        </label>
+      </div>`;
+
+    case 'section': return `
+      <div class="fg">
+        <label class="fl">본문 텍스트</label>
+        <textarea class="fta" oninput="blocks[${i}].content.text=this.value;updateOutput()">${eh(b.content?.text||'')}</textarea>
+      </div>
+      <div class="fg">
+        <label class="fl">썸네일 이미지 URL <span style="color:#bbb;font-weight:400">(선택, 우측 48×48)</span></label>
+        <input class="fi" type="url" value="${eh(b.accessory?.url||'')}" placeholder="https://example.com/thumb.png"
+          oninput="const v=this.value;if(v){if(!blocks[${i}].accessory)blocks[${i}].accessory={type:'image_link'};blocks[${i}].accessory.url=v;}else{blocks[${i}].accessory=null;}updateOutput()">
+      </div>`;
+
+    case 'context': return `
+      <div class="fg">
+        <label class="fl">보조 텍스트</label>
+        <input class="fi" value="${eh(b.content?.text||'')}"
+          oninput="blocks[${i}].content.text=this.value;updateOutput()">
+      </div>
+      <div class="fg">
+        <label class="fl">아이콘 이미지 URL <span style="color:#bbb;font-weight:400">(24×24 원형)</span></label>
+        <input class="fi" type="url" value="${eh(b.image?.url||'')}" placeholder="https://example.com/icon.png"
+          oninput="if(!blocks[${i}].image)blocks[${i}].image={type:'image_link'};blocks[${i}].image.url=this.value;updateOutput()">
+        <div class="hint">스펙상 image는 필수 항목입니다. URL을 반드시 입력하세요.</div>
+      </div>`;
+
+    default: return '<div style="color:#bbb;font-size:12px">미지원 블럭</div>';
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PALETTE DRAG INTO EDITOR
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function paletteDragStart(e, type) {
+  paletteDragType = type;
+  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'copy';
+}
+function paletteDragEnd(e) {
+  paletteDragType = null;
+  e.currentTarget.classList.remove('dragging');
+  document.querySelectorAll('.block-card').forEach(c => c.classList.remove('drag-over'));
+  document.getElementById('blockScroll').classList.remove('drop-zone');
+}
+
+// blockScroll 전체를 드롭존으로 — 카드 사이 빈 공간 또는 빈 리스트에 drop 시 맨 끝에 추가
+function attachScrollDrop() {
+  const scroll = document.getElementById('blockScroll');
+  scroll.addEventListener('dragover', e => {
+    if (paletteDragType === null) return;
+    e.preventDefault();
+    scroll.classList.add('drop-zone');
+  });
+  scroll.addEventListener('dragleave', e => {
+    if (!scroll.contains(e.relatedTarget)) scroll.classList.remove('drop-zone');
+  });
+  scroll.addEventListener('drop', e => {
+    if (paletteDragType === null) return;
+    // 카드 위에 드롭한 경우는 카드의 drop 핸들러가 처리 (stopPropagation)
+    scroll.classList.remove('drop-zone');
+    const block = makeDefault(paletteDragType);
+    if (block) { blocks.push(block); syncAll(); }
+    paletteDragType = null;
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// DRAG & DROP REORDER
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function attachDragEvents() {
+  document.querySelectorAll('.block-card').forEach(card => {
+    const header = card.querySelector('.card-header');
+
+    // dragstart / dragend — 헤더에 draggable="true"가 있으므로 여기서 시작
+    header.addEventListener('dragstart', e => {
+      dragSrc = parseInt(card.dataset.idx);
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    header.addEventListener('dragend', () => {
+      dragSrc = null;
+      document.querySelectorAll('.block-card').forEach(c => c.classList.remove('drag-over'));
+    });
+
+    // dragover / dragleave / drop — 카드 전체가 드롭 타겟
+    card.addEventListener('dragover', e => {
+      if (dragSrc === null && paletteDragType === null) return;
+      e.preventDefault();
+      e.stopPropagation(); // blockScroll의 drop-zone 하이라이트 억제
+      document.querySelectorAll('.block-card').forEach(c => c.classList.remove('drag-over'));
+      document.getElementById('blockScroll').classList.remove('drop-zone');
+      card.classList.add('drag-over');
+    });
+    card.addEventListener('dragleave', e => {
+      if (!card.contains(e.relatedTarget)) {
+        card.classList.remove('drag-over');
+      }
+    });
+    card.addEventListener('drop', e => {
+      e.preventDefault();
+      e.stopPropagation(); // blockScroll drop 핸들러 중복 실행 방지
+      card.classList.remove('drag-over');
+      const target = parseInt(card.dataset.idx);
+
+      // 팔레트에서 드래그 — 이 카드 위치 앞에 삽입
+      if (paletteDragType !== null) {
+        const block = makeDefault(paletteDragType);
+        if (block) { blocks.splice(target, 0, block); syncAll(); }
+        paletteDragType = null;
+        return;
+      }
+
+      // 카드 재정렬
+      if (dragSrc === null || dragSrc === target) return;
+      if (dragSrc < 0 || dragSrc >= blocks.length) { dragSrc = null; return; }
+      const moved = blocks.splice(dragSrc, 1)[0];
+      const adj = dragSrc < target ? target - 1 : target;
+      blocks.splice(adj, 0, moved);
+      dragSrc = null;
+      syncAll();
+    });
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// VALIDATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function validate() {
+  const warnings = [];
+  const len = blocks.length;
+  if (len === 0) return warnings;
+
+  // ── 오류 (스펙 위반 · 사용 불가) ──────────────────────────
+
+  // 알림 텍스트 필수
+  if (!document.getElementById('notifText')?.value?.trim())
+    warnings.push({ level:'error', msg:'알림 텍스트는 필수 항목입니다. 비워둘 수 없습니다.' });
+
+  // 헤더는 메시지당 1개, 반드시 첫 번째
+  const headerCount = blocks.filter(b => b.type === 'header').length;
+  if (headerCount > 1)
+    warnings.push({ level:'error', msg:`헤더(Header) 블럭이 ${headerCount}개입니다. 메시지 버블에 헤더는 1개만 사용할 수 있습니다.` });
+  blocks.forEach((b, i) => {
+    if (b.type === 'header' && i !== 0)
+      warnings.push({ level:'error', msg:`블럭 ${i+1}: 헤더(Header)는 메시지 최상단(첫 번째 블럭)에만 배치할 수 있습니다.` });
+  });
+
+  // 구분선 단독/상단/하단 불가
+  if (len === 1 && blocks[0]?.type === 'divider') {
+    warnings.push({ level:'error', msg:'구분선(Divider) 단독으로는 메시지를 구성할 수 없습니다.' });
+  } else {
+    if (blocks[0]?.type === 'divider')
+      warnings.push({ level:'error', msg:'구분선(Divider)은 메시지의 첫 번째 블럭에 배치할 수 없습니다.' });
+    if (blocks[len-1]?.type === 'divider')
+      warnings.push({ level:'error', msg:'구분선(Divider)은 메시지의 마지막 블럭에 배치할 수 없습니다.' });
+  }
+
+  // 이미지를 버튼 바로 아래 배치 불가
+  blocks.forEach((b, i) => {
+    if (i > 0 && b.type === 'image_link' && blocks[i-1]?.type === 'button')
+      warnings.push({ level:'error', msg:`블럭 ${i+1}: 이미지(Image Link)는 버튼(Button) 바로 아래에 배치할 수 없습니다.` });
+  });
+
+  // 컨텍스트 이미지 URL 필수
+  blocks.forEach((b, i) => {
+    if (b.type === 'context' && !b.image?.url)
+      warnings.push({ level:'error', msg:`블럭 ${i+1}: 컨텍스트(Context)의 이미지 URL은 필수 항목입니다.` });
+  });
+
+  // 버튼 그룹 최소 2개
+  blocks.forEach((b, i) => {
+    if (b.type === 'action' && (b.elements||[]).length < 2)
+      warnings.push({ level:'error', msg:`블럭 ${i+1}: 버튼 그룹(Action)에는 최소 2개의 버튼이 있어야 합니다.` });
+  });
+
+  // ── 권장하지 않음 (스펙 가이드 위반) ──────────────────────
+
+  // 이미지 연속 배치 비권장
+  blocks.forEach((b, i) => {
+    if (i > 0 && b.type === 'image_link' && blocks[i-1]?.type === 'image_link')
+      warnings.push({ level:'warn', msg:`블럭 ${i+1}: 이미지(Image Link)를 연속으로 배치하는 것은 권장하지 않습니다.` });
+  });
+
+  // 버튼 블럭 4개 이상 비권장
+  const buttonCount = blocks.filter(b => b.type === 'button').length;
+  if (buttonCount >= 4)
+    warnings.push({ level:'warn', msg:`버튼(Button) 블럭이 ${buttonCount}개입니다. 4개 이상은 권장하지 않습니다.` });
+
+  return warnings;
+}
+
+function renderValidation() {
+  const wrap = document.getElementById('valBanners');
+  const items = validate();
+  if (items.length === 0) { wrap.innerHTML = ''; return; }
+
+  const errors = items.filter(w => w.level === 'error');
+  const warns  = items.filter(w => w.level === 'warn');
+
+  let html = '';
+  if (errors.length > 0) {
+    html += `<div class="val-group-label error-label">🚫 스펙 위반 — 이대로 전송 시 오류가 발생합니다</div>`;
+    html += errors.map(w => `<div class="val-item error"><span>${eh(w.msg)}</span></div>`).join('');
+  }
+  if (warns.length > 0) {
+    html += `<div class="val-group-label warn-label">⚠️ 권장하지 않음 — 전송은 되지만 UX 품질이 저하될 수 있습니다</div>`;
+    html += warns.map(w => `<div class="val-item"><span>${eh(w.msg)}</span></div>`).join('');
+  }
+  wrap.innerHTML = html;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// PREVIEW RENDERING
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderPreview() {
+  const bubble = document.getElementById('previewBubble');
+  if (blocks.length === 0) {
+    bubble.innerHTML = '<div class="bubble-empty">블럭을 추가하면<br>여기에 미리보기가 표시됩니다</div>';
+    return;
+  }
+  bubble.innerHTML = blocks.map(renderBlock).join('');
+}
+
+function renderBlock(b) {
+  switch (b.type) {
+    case 'header':
+      return `<div class="pv-header ${b.style||'white'}">${eh(b.text)}</div>`;
+    case 'text':
+      return `<div class="pv-text">${eh(b.text).replace(/\n/g,'<br>')}</div>`;
+    case 'image_link': {
+      const imgSrc = safeUrl(b.url);
+      return imgSrc
+        ? `<img class="pv-image" src="${eh(imgSrc)}" onerror="this.outerHTML='<div class=\\'pv-image-ph\\'>이미지를 불러올 수 없습니다</div>'">`
+        : `<div class="pv-image-ph">🖼 이미지 URL을 입력하세요</div>`;
+    }
+    case 'divider':
+      return `<div class="pv-divider"></div>`;
+    case 'button':
+      return `<div class="pv-btn-wrap"><div class="pv-btn ${b.style||'default'}">${eh(b.text)}</div></div>`;
+    case 'action':
+      return `<div class="pv-action">${(b.elements||[]).map(el=>`<div class="pv-btn ${el.style||'default'}">${eh(el.text)}</div>`).join('')}</div>`;
+    case 'description':
+      return `<div class="pv-desc">
+        <div class="pv-term ${b.accent?'accent':''}">${eh(b.term)}</div>
+        <div class="pv-desc-content">${eh(b.content?.text||'').replace(/\n/g,'<br>')}</div>
+      </div>`;
+    case 'section': {
+      const secSrc = safeUrl(b.accessory?.url);
+      const img = secSrc
+        ? `<img class="pv-section-img" src="${eh(secSrc)}" onerror="this.style.background='#eee';this.src='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEAAAAALAAAAAABAAEAAAI='">`
+        : '';
+      return `<div class="pv-section">
+        <div class="pv-section-text">${eh(b.content?.text||'').replace(/\n/g,'<br>')}</div>${img}
+      </div>`;
+    }
+    case 'context': {
+      const ctxSrc = safeUrl(b.image?.url);
+      const icon = ctxSrc
+        ? `<img class="pv-ctx-img" src="${eh(ctxSrc)}" onerror="this.style.background='#ddd';this.src='data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEAAAAALAAAAAABAAEAAAI='">`
+        : `<div class="pv-ctx-img"></div>`;
+      return `<div class="pv-context">${icon}<div class="pv-ctx-text">${eh(b.content?.text||'')}</div></div>`;
+    }
+    default: return '';
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// JSON GENERATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function renderJSON() {
+  const text = document.getElementById('notifText').value;
+  const payload = { text, blocks: blocks.map(cleanBlock) };
+  document.getElementById('jsonOut').value = JSON.stringify(payload, null, 2);
+}
+
+function cleanBlock(b) {
+  switch (b.type) {
+    case 'header':      return { type:'header', text:b.text, style:b.style };
+    case 'text':        return { type:'text', text:b.text };
+    case 'image_link':  return { type:'image_link', url: b.url?.startsWith('data:') ? '' : safeUrl(b.url) };
+    case 'divider':     return { type:'divider' };
+    case 'button':      return { type:'button', text:b.text, style:b.style, action:{ ...b.action, url:safeUrl(b.action?.url) } };
+    case 'action':      return { type:'action', elements:(b.elements||[]).map(el=>({ type:'button', text:el.text, style:el.style, action:{ ...el.action, url:safeUrl(el.action?.url) } })) };
+    case 'description': return { type:'description', term:b.term, accent:b.accent, content:{ type:'text', text:b.content?.text||'' } };
+    case 'section': {
+      const out = { type:'section', content:{ type:'text', text:b.content?.text||'' } };
+      if (safeUrl(b.accessory?.url)) out.accessory = { type:'image_link', url:safeUrl(b.accessory.url) };
+      return out;
+    }
+    case 'context': {
+      // image url is required per spec — omit image entirely if empty (validate() will flag it)
+      const ctxOut = { type:'context', content:{ type:'text', text:b.content?.text||'' } };
+      if (safeUrl(b.image?.url)) ctxOut.image = { type:'image_link', url:safeUrl(b.image.url) };
+      return ctxOut;
+    }
+    default: return b;
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// COPY / DOWNLOAD
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function copyJSON() {
+  if (blocks.length === 0) { toast('블럭을 먼저 추가해주세요.'); return; }
+  const json = document.getElementById('jsonOut').value;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(json)
+      .then(() => toast('JSON이 클립보드에 복사되었습니다! 📋'))
+      .catch(() => copyFallback(json));
+  } else {
+    copyFallback(json);
+  }
+}
+function copyFallback(json) {
+  const ta = document.getElementById('jsonOut');
+  ta.select();
+  document.execCommand('copy');
+  toast('JSON이 복사되었습니다! 📋');
+}
+
+function downloadJSON() {
+  if (blocks.length === 0) { toast('블럭을 먼저 추가해주세요.'); return; }
+  const json = document.getElementById('jsonOut').value;
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = Object.assign(document.createElement('a'), { href:url, download:'blockkit.json' });
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('blockkit.json 파일이 저장되었습니다!');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// GEMINI AI IMAGE GENERATION
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function generateImage(i) {
+  const apiKey = document.getElementById(`geminiKey_${i}`)?.value.trim()
+               || localStorage.getItem('gemini_api_key');
+  const prompt = document.getElementById(`aiPrompt_${i}`)?.value.trim();
+  const btn    = document.getElementById(`btnAiGen_${i}`);
+
+  if (!apiKey) { toast('Gemini API Key를 입력해주세요.'); return; }
+  if (!prompt) { toast('이미지 설명을 입력해주세요.'); return; }
+
+  btn.disabled = true;
+  btn.textContent = '생성 중…';
+  try {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${encodeURIComponent(apiKey)}`;
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { responseModalities: ['IMAGE'] }
+      })
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err?.error?.message || `HTTP ${res.status}`);
+    }
+    const data = await res.json();
+    const part = data?.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
+    if (!part) throw new Error('이미지 데이터를 받지 못했습니다.');
+
+    const dataUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    blocks[i].url = dataUrl;
+    document.getElementById(`imgUrl_${i}`).value = '(AI 생성 이미지 — 미리보기 전용)';
+    updateOutput();
+    toast('AI 이미지가 생성되었습니다! ✨');
+  } catch (e) {
+    toast(`이미지 생성 실패: ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '생성';
+  }
+}
+
+function handleImageUpload(i, input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('파일 크기는 5MB 이하여야 합니다.'); return; }
+  const reader = new FileReader();
+  reader.onload = e => {
+    blocks[i].url = e.target.result;
+    updateOutput();
+    // 업로드 완료 후 레이블 텍스트 갱신
+    const label = document.querySelector(`label[for="imgFile_${i}"]`);
+    if (label) label.textContent = '✅ 이미지 업로드 완료 — 다시 선택하려면 클릭';
+    toast('이미지가 업로드되었습니다! 🖼');
+  };
+  reader.readAsDataURL(file);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SEND PANEL
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const KW_API = 'https://api.kakaowork.com/v1';
+
+function saveAppKey() {
+  const v = document.getElementById('sendAppKey').value;
+  if (v) localStorage.setItem('kw_app_key', v);
+  else   localStorage.removeItem('kw_app_key');
+}
+function loadAppKey() {
+  const k = localStorage.getItem('kw_app_key');
+  if (k) document.getElementById('sendAppKey').value = k;
+}
+function toggleKeyVisibility() {
+  const inp = document.getElementById('sendAppKey');
+  const isHidden = inp.type === 'password';
+  inp.type = isHidden ? 'text' : 'password';
+  document.getElementById('btnEye').textContent = isHidden ? '🙈' : '👁';
+}
+
+function setResult(html) {
+  const el = document.getElementById('sendResult');
+  el.innerHTML = html;
+  el.classList.toggle('visible', !!html);
+}
+
+function curlBox(label, cmd) {
+  const safe = cmd.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return `
+    <div>
+      <div class="curl-step-label">${label}</div>
+      <div class="curl-code" onclick="copyCurl(this)" title="클릭하여 복사">${safe}</div>
+    </div>`;
+}
+function copyCurl(el) {
+  const text = el.textContent;
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('명령어가 복사되었습니다! 📋'));
+  else { const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); toast('복사되었습니다! 📋'); }
+}
+
+function buildCurlGuide(appKey, email) {
+  // JSON 페이로드를 파일로 저장 후 참조 — 따옴표 이스케이프 문제 원천 차단
+  const payload = {
+    conversation_id: '<2단계에서 얻은 conversation.id>',
+    text: document.getElementById('notifText').value || '새 메시지',
+    blocks: blocks.map(cleanBlock)
+  };
+  const payloadJson = JSON.stringify(payload, null, 2);
+
+  const c1 = `curl -s \\
+  "${KW_API}/users.find_by_email?email=${encodeURIComponent(email)}" \\
+  -H "Authorization: Bearer ${appKey}"
+# 응답에서 user.id 값을 복사해두세요`;
+
+  const c2 = `curl -s -X POST \\
+  "${KW_API}/conversations.open" \\
+  -H "Authorization: Bearer ${appKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"user_id": "<1단계에서 얻은 user.id>"}'
+# 응답에서 conversation.id 값을 복사해두세요`;
+
+  const c3 = `# 먼저 페이로드 파일을 저장합니다
+cat > /tmp/kw_message.json << 'PAYLOAD'
+${payloadJson}
+PAYLOAD
+
+# 그런 다음 전송합니다 (conversation_id는 위 파일에서 교체하세요)
+curl -s -X POST \\
+  "${KW_API}/messages.send" \\
+  -H "Authorization: Bearer ${appKey}" \\
+  -H "Content-Type: application/json" \\
+  -d @/tmp/kw_message.json`;
+
+  return `
+    <div class="send-status info">
+      ℹ️ KakaoWork Bot API는 서버 환경 전용입니다 (브라우저 CORS 미지원).<br>
+      아래 3단계 명령어를 <strong>터미널</strong>(맥: Terminal / 윈도우: PowerShell)에서 순서대로 실행하세요.
+    </div>
+    <div class="curl-block">
+      ${curlBox('① 이메일로 user_id 조회', c1)}
+      ${curlBox('② user_id로 1:1 대화방 열기', c2)}
+      ${curlBox('③ 메시지 전송 (파일 방식 — 이스케이프 걱정 없음)', c3)}
+    </div>
+    <div class="send-hint" style="margin-top:6px">
+      💡 각 명령어 블록을 클릭하면 클립보드에 복사됩니다.<br>
+      ③의 <code>conversation_id</code> 값을 ②의 응답값으로 교체 후 실행하세요.
+    </div>`;
+}
+
+function sendMessage() {
+  const appKey = document.getElementById('sendAppKey').value.trim();
+  const email  = document.getElementById('sendEmail').value.trim();
+
+  if (!appKey) { toast('App Key를 입력해주세요.'); return; }
+  if (!email)  { toast('수신자 이메일을 입력해주세요.'); return; }
+  if (blocks.length === 0) { toast('블럭을 먼저 추가해주세요.'); return; }
+
+  setResult(buildCurlGuide(appKey, email));
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TABS
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function switchTab(tab) {
+  ['preview','json','send'].forEach(t => {
+    document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+    document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+  });
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TOAST
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ESCAPE HTML / URL SANITIZE
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function eh(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+// http(s): 스킴만 허용 — javascript:, data: 등 차단
+function safeUrl(url) {
+  if (!url) return '';
+  // data: URL은 AI생성/업로드 이미지용으로 미리보기에서만 허용 (JSON 출력 시 별도 처리)
+  if (url.startsWith('data:image/')) return url;
+  try {
+    const u = new URL(url);
+    return (u.protocol === 'http:' || u.protocol === 'https:') ? url : '';
+  } catch { return ''; }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TEMPLATES
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const TEMPLATES = [
+  {
+    name: '📢 공지사항', desc: '일시·장소·대상 안내',
+    notif: '새로운 공지사항이 있습니다.',
+    blocks: [
+      { type:'header', text:'📢 공지사항', style:'blue' },
+      { type:'text', text:'안녕하세요!\n새로운 공지사항을 알려드립니다.' },
+      { type:'divider' },
+      { type:'description', term:'일시', accent:true, content:{ type:'text', text:'2024년 3월 15일 (금) 오후 3시' } },
+      { type:'description', term:'장소', accent:true, content:{ type:'text', text:'본사 3층 대회의실' } },
+      { type:'description', term:'대상', accent:true, content:{ type:'text', text:'전 임직원' } },
+      { type:'divider' },
+      { type:'action', elements:[
+        { type:'button', text:'자세히 보기', style:'primary', action:{ type:'open_system_browser', url:'https://example.com' } },
+        { type:'button', text:'확인',       style:'default', action:{ type:'open_system_browser', url:'https://example.com' } },
+      ]},
+    ]
+  },
+  {
+    name: '✅ 승인 요청', desc: '결재·승인 요청 메시지',
+    notif: '승인이 필요한 요청이 있습니다.',
+    blocks: [
+      { type:'header', text:'휴가 신청 승인 요청', style:'yellow' },
+      { type:'section', content:{ type:'text', text:'김철수님이 휴가 신청을 요청했습니다.\n검토 후 승인 또는 반려해 주세요.' }, accessory:{ type:'image_link', url:'https://i.pravatar.cc/100?img=3' } },
+      { type:'divider' },
+      { type:'description', term:'신청자', accent:true, content:{ type:'text', text:'김철수 (개발팀)' } },
+      { type:'description', term:'기간',   accent:true, content:{ type:'text', text:'2024.03.20 ~ 2024.03.22 (3일)' } },
+      { type:'description', term:'사유',   accent:true, content:{ type:'text', text:'가족 여행' } },
+      { type:'divider' },
+      { type:'action', elements:[
+        { type:'button', text:'승인', style:'primary', action:{ type:'open_system_browser', url:'https://example.com/approve' } },
+        { type:'button', text:'반려', style:'danger',  action:{ type:'open_system_browser', url:'https://example.com/reject' } },
+      ]},
+    ]
+  },
+  {
+    name: '📅 일정 알림', desc: '오늘의 주요 일정',
+    notif: '오늘의 주요 일정을 알려드립니다.',
+    blocks: [
+      { type:'header', text:'📅 오늘의 일정', style:'white' },
+      { type:'text', text:'안녕하세요! 오늘 예정된 주요 일정입니다.' },
+      { type:'divider' },
+      { type:'context', content:{ type:'text', text:'오전 10:00 · 주간 팀 미팅 · 3층 회의실' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/conference-call.png' } },
+      { type:'context', content:{ type:'text', text:'오후 2:00 · 신규 프로젝트 킥오프 · Zoom' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/zoom.png' } },
+      { type:'context', content:{ type:'text', text:'오후 4:30 · 고객사 미팅 · 2층 미팅룸' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/handshake.png' } },
+      { type:'divider' },
+      { type:'button', text:'전체 일정 보기', style:'default', action:{ type:'open_system_browser', url:'https://example.com/calendar' } },
+    ]
+  },
+  {
+    name: '🔔 시스템 점검', desc: '서비스 중단 사전 안내',
+    notif: '시스템 점검 안내',
+    blocks: [
+      { type:'header', text:'⚠️ 시스템 점검 안내', style:'red' },
+      { type:'text', text:'정기 시스템 점검이 예정되어 있습니다.\n점검 시간 동안 서비스 이용이 제한됩니다.' },
+      { type:'divider' },
+      { type:'description', term:'점검 일시', accent:true, content:{ type:'text', text:'2024년 3월 20일 02:00 ~ 04:00' } },
+      { type:'description', term:'영향 범위', accent:true, content:{ type:'text', text:'전체 서비스 (로그인, 데이터 조회 등)' } },
+      { type:'description', term:'담당팀',    accent:true, content:{ type:'text', text:'인프라팀 (infra@company.com)' } },
+      { type:'divider' },
+      { type:'context', content:{ type:'text', text:'문의사항은 인프라팀 채널로 연락해 주세요.' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/help.png' } },
+    ]
+  },
+];
+
+function loadTemplate(idx) {
+  closeTemplateMenu();
+  if (idx < 0 || idx >= TEMPLATES.length) return;
+  const t = TEMPLATES[idx];
+  if (blocks.length > 0 && !confirm(`현재 작업을 지우고 '${t.name}' 템플릿을 불러올까요?`)) return;
+  blocks = t.blocks.map(b => JSON.parse(JSON.stringify(b)));
+  document.getElementById('notifText').value = t.notif;
+  syncAll();
+  toast(`'${t.name}' 템플릿이 적용되었습니다!`);
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// TEMPLATE MENU
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function toggleTemplateMenu(e) {
+  e.stopPropagation();
+  const dd = document.getElementById('tplDropdown');
+  const ov = document.getElementById('tplOverlay');
+  const isHidden = dd.classList.contains('hidden');
+  dd.classList.toggle('hidden', !isHidden);
+  ov.classList.toggle('hidden', !isHidden);
+}
+function closeTemplateMenu() {
+  document.getElementById('tplDropdown').classList.add('hidden');
+  document.getElementById('tplOverlay').classList.add('hidden');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INIT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function init() {
+  // Palette
+  document.getElementById('palette').innerHTML = BLOCK_META.map(m => `
+    <div class="palette-item" draggable="true"
+         ondragstart="paletteDragStart(event,'${m.type}')"
+         ondragend="paletteDragEnd(event)"
+         onclick="addBlock('${m.type}')">
+      <div class="palette-item-name">${m.emoji} ${m.name}</div>
+      <div class="palette-item-desc">${m.desc}</div>
+    </div>
+  `).join('');
+
+  // Sidebar template list
+  document.getElementById('template-list').innerHTML = TEMPLATES.map((t, i) => `
+    <div class="palette-item" onclick="loadTemplate(${i})">
+      <div class="palette-item-name" style="font-size:12px">${t.name}</div>
+      <div class="palette-item-desc">${t.desc}</div>
+    </div>
+  `).join('');
+
+  // Header template dropdown
+  document.getElementById('tplItems').innerHTML = TEMPLATES.map((t, i) => `
+    <div class="tpl-item" onclick="loadTemplate(${i})">
+      <div class="tpl-item-name">${t.name}</div>
+      <div class="tpl-item-desc">${t.desc}</div>
+    </div>
+  `).join('');
+
+  attachScrollDrop();
+  loadAppKey();
+  syncAll();
+}
+
+init();
+</script>
+</body>
+</html>
