@@ -1887,6 +1887,24 @@ function init() {
 
   attachScrollDrop();
   loadAppKey();
+
+  // 컨버터에서 보낸 블록 임포트
+  const importData = localStorage.getItem('kw_import_blocks');
+  if (importData) {
+    try {
+      const imported = JSON.parse(importData);
+      if (Array.isArray(imported) && imported.length > 0) {
+        blocks = imported.map(b => {
+          // _src 필드가 없는 image_link에 기본값 추가
+          if (b.type === 'image_link' && !b._src) b._src = 'url';
+          return b;
+        });
+        toast('컨버터에서 블록을 가져왔습니다! 🔧');
+      }
+    } catch { /* ignore parse errors */ }
+    localStorage.removeItem('kw_import_blocks');
+  }
+
   syncAll();
 }
 
