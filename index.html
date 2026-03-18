@@ -573,6 +573,18 @@
       color: var(--kw-dark);
     }
 
+    /* ─── Image Presets ─── */
+    .preset-row { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0; }
+    .preset-thumb {
+      flex: 0 0 auto; width: 90px; cursor: pointer;
+      border: 2px solid var(--kw-gray2); border-radius: 8px; overflow: hidden;
+      transition: border-color .15s, box-shadow .15s; text-align: center;
+    }
+    .preset-thumb img { width: 100%; height: 45px; object-fit: cover; display: block; }
+    .preset-thumb span { display: block; font-size: 10px; padding: 3px 0; color: #666; }
+    .preset-thumb:hover { border-color: var(--kw-yellow); box-shadow: 0 2px 6px rgba(0,0,0,.1); }
+    .preset-thumb.selected { border-color: var(--kw-yellow); box-shadow: 0 0 0 2px var(--kw-yellow); }
+
     /* ─── Color Chips ─── */
     .chip-row { display: flex; gap: 6px; flex-wrap: wrap; }
     .chip {
@@ -799,13 +811,21 @@ const metaMap = Object.fromEntries(BLOCK_META.map(m => [m.type, m]));
 // image_link_ai / image_link_upload 둘 다 실제 블럭 type은 'image_link' 이므로 역방향 조회용
 metaMap['image_link'] = { emoji: '🖼', name: '이미지' };
 
+const IMAGE_PRESETS = [
+  { name: '공지',  emoji: '📢', url: 'https://picsum.photos/id/180/800/400' },
+  { name: '미팅',  emoji: '🤝', url: 'https://picsum.photos/id/1/800/400' },
+  { name: '축하',  emoji: '🎉', url: 'https://picsum.photos/id/225/800/400' },
+  { name: '서버',  emoji: '🖥', url: 'https://picsum.photos/id/60/800/400' },
+  { name: '자연',  emoji: '🌿', url: 'https://picsum.photos/id/10/800/400' },
+];
+
 function makeDefault(type) {
   switch (type) {
     case 'header':      return { type:'header', text:'헤더 제목을 입력하세요', style:'blue' };
     case 'text':        return { type:'text', text:'텍스트 내용을 입력하세요.' };
     case 'image_link':        return { type:'image_link', _src:'url',    url:'' };
-    case 'image_link_ai':     return { type:'image_link', _src:'ai',     url:'' };
-    case 'image_link_upload': return { type:'image_link', _src:'upload', url:'' };
+    case 'image_link_ai':     return { type:'image_link', _src:'ai',     url:'', _preview:'' };
+    case 'image_link_upload': return { type:'image_link', _src:'upload', url:'', _preview:'' };
     case 'divider':     return { type:'divider' };
     case 'button':      return { type:'button', text:'버튼', style:'default', action:{ type:'open_system_browser', url:'https://example.com' } };
     case 'action':      return { type:'action', elements:[
@@ -961,13 +981,31 @@ function buildForm(b, i) {
 
       if (b._src === 'upload') return `
         <div class="fg">
-          <label class="fl">이미지 파일 업로드</label>
+          <label class="fl">프리셋 이미지</label>
+          <div class="preset-row">
+            ${IMAGE_PRESETS.map((p, pi) => `
+              <div class="preset-thumb ${b.url === p.url ? 'selected' : ''}"
+                onclick="selectPreset(${i}, ${pi})" title="${p.name}">
+                <img src="${p.url}" alt="${p.name}" loading="lazy">
+                <span>${p.emoji} ${p.name}</span>
+              </div>`).join('')}
+          </div>
+        </div>
+        <div class="fg">
+          <label class="fl">이미지 URL <span style="color:#f5a623;font-weight:400">(전송 시 사용)</span></label>
+          <input class="fi" type="url" id="imgUrl_${i}" value="${eh(b.url?.startsWith('data:') ? '' : b.url)}"
+            placeholder="https://example.com/image.png"
+            oninput="blocks[${i}].url=this.value;blocks[${i}]._preview='';updateOutput()">
+          <div class="hint">실제 봇 전송에 사용되는 URL입니다. 프리셋 선택 또는 직접 입력하세요.</div>
+        </div>
+        <div class="fg">
+          <label class="fl">미리보기용 파일 업로드 <span style="color:#bbb;font-weight:400">(선택사항)</span></label>
           <label class="upload-label" for="imgFile_${i}">
-            ${b.url ? '✅ 이미지 업로드 완료 — 다시 선택하려면 클릭' : '📁 클릭하여 이미지 파일 선택'}
+            ${b._preview ? '✅ 미리보기 이미지 업로드됨 — 다시 선택하려면 클릭' : '📁 클릭하여 이미지 파일 선택'}
           </label>
           <input type="file" id="imgFile_${i}" class="upload-input" accept="image/*"
             onchange="handleImageUpload(${i}, this)">
-          <div class="hint">권장 비율: 가로 : 세로 = 2 : 1 | ⚠️ 업로드 이미지는 미리보기 전용입니다. 실제 봇 전송 시 공개 URL로 교체하세요.</div>
+          <div class="hint">권장 비율: 가로 : 세로 = 2 : 1 | 업로드 이미지는 미리보기에서만 표시됩니다.</div>
         </div>`;
 
       // fallback: URL 직접 입력 (_src === 'url' 또는 구버전 블럭)
@@ -1282,7 +1320,7 @@ function renderBlock(b) {
     case 'text':
       return `<div class="pv-text">${eh(b.text).replace(/\n/g,'<br>')}</div>`;
     case 'image_link': {
-      const imgSrc = safeUrl(b.url);
+      const imgSrc = safeUrl(b._preview || b.url);
       return imgSrc
         ? `<img class="pv-image" src="${eh(imgSrc)}" onerror="this.outerHTML='<div class=\\'pv-image-ph\\'>이미지를 불러올 수 없습니다</div>'">`
         : `<div class="pv-image-ph">🖼 이미지 URL을 입력하세요</div>`;
@@ -1341,7 +1379,7 @@ function cleanBlock(b) {
   switch (b.type) {
     case 'header':      return { type:'header', text:b.text, style:b.style };
     case 'text':        return { type:'text', text:b.text };
-    case 'image_link':  return { type:'image_link', url: b.url?.startsWith('data:') ? '' : safeUrl(b.url) };
+    case 'image_link':  return { type:'image_link', url: safeUrl(b.url) };
     case 'divider':     return { type:'divider' };
     case 'button':      return { type:'button', text:b.text, style:b.style, action:{ type:b.action?.type||'open_system_browser', url:safeUrl(b.action?.url) } };
     case 'action':      return { type:'action', elements:(b.elements||[]).map(el=>({ type:'button', text:el.text, style:el.style, action:{ type:el.action?.type||'open_system_browser', url:safeUrl(el.action?.url) } })) };
@@ -1357,7 +1395,7 @@ function cleanBlock(b) {
       if (safeUrl(b.image?.url)) ctxOut.image = { type:'image_link', url:safeUrl(b.image?.url) };
       return ctxOut;
     }
-    default: { const {_src, ...rest} = b; return rest; }
+    default: { const {_src, _preview, ...rest} = b; return rest; }
   }
 }
 
@@ -1433,7 +1471,7 @@ async function generateImage(i) {
       toast('블록이 삭제되어 이미지를 적용할 수 없습니다.');
       return;
     }
-    blocks[i].url = dataUrl;
+    blocks[i]._preview = dataUrl;
     const urlEl = document.getElementById(`imgUrl_${i}`);
     if (urlEl) urlEl.value = '(AI 생성 이미지 — 미리보기 전용)';
     updateOutput();
@@ -1457,13 +1495,22 @@ function handleImageUpload(i, input) {
       toast('블록이 삭제되어 이미지를 적용할 수 없습니다.');
       return;
     }
-    blocks[i].url = e.target.result;
+    blocks[i]._preview = e.target.result;
     updateOutput();
     const label = document.querySelector(`label[for="imgFile_${i}"]`);
-    if (label) label.textContent = '✅ 이미지 업로드 완료 — 다시 선택하려면 클릭';
-    toast('이미지가 업로드되었습니다! 🖼');
+    if (label) label.textContent = '✅ 미리보기 이미지 업로드됨 — 다시 선택하려면 클릭';
+    toast('미리보기 이미지가 업로드되었습니다! 🖼');
   };
   reader.readAsDataURL(file);
+}
+
+function selectPreset(i, presetIdx) {
+  if (!blocks[i] || blocks[i].type !== 'image_link') return;
+  if (presetIdx < 0 || presetIdx >= IMAGE_PRESETS.length) return;
+  blocks[i].url = IMAGE_PRESETS[presetIdx].url;
+  blocks[i]._preview = '';
+  syncAll();
+  toast(`'${IMAGE_PRESETS[presetIdx].name}' 프리셋이 적용되었습니다!`);
 }
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1518,8 +1565,8 @@ function copyCurl(el) {
 function buildCurlGuide(appKey, emails) {
   // messages.send_by_email — 이메일 하나로 바로 전송 (conversations.open 불필요)
   const cleanedBlocks = blocks.map(cleanBlock);
-  const dataUrlBlockCount = blocks.filter(
-    (b, i) => b.type === 'image_link' && b.url?.startsWith('data:') && cleanedBlocks[i]?.url === ''
+  const emptyImgCount = cleanedBlocks.filter(
+    cb => cb.type === 'image_link' && !cb.url
   ).length;
 
   const notifText = document.getElementById('notifText').value || '새 메시지';
@@ -1541,10 +1588,10 @@ curl -s -X POST \\
   -d @${file}`;
   });
 
-  const dataUrlWarning = dataUrlBlockCount > 0 ? `
+  const emptyImgWarning = emptyImgCount > 0 ? `
     <div class="send-status" style="background:#FFF0F0;color:#8B1A1A;border:1px solid #F5A0A0;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:2px;">
-      ⚠️ <strong>이미지 주의</strong>: AI 생성 또는 업로드된 이미지(${dataUrlBlockCount}개)는 JSON에 포함될 수 없어 <strong>빈 URL("")로 대체</strong>됩니다.<br>
-      실제 발송 시 이미지가 표시되려면 이미지를 외부 URL(https://...)로 교체하세요.
+      ⚠️ <strong>이미지 주의</strong>: 이미지 블럭 ${emptyImgCount}개에 전송용 URL이 없습니다.<br>
+      프리셋을 선택하거나 공개 URL(https://...)을 입력하세요.
     </div>` : '';
 
   const cmdBoxes = cmds.map((cmd, idx) =>
@@ -1561,7 +1608,7 @@ curl -s -X POST \\
       ⚠️ <strong>이메일 주의</strong>: 카카오워크 <strong>가입 시 인증한 이메일</strong>만 유효합니다.<br>
       프로필에 나중에 추가한 이메일로는 전송되지 않습니다.
     </div>
-    ${dataUrlWarning}
+    ${emptyImgWarning}
     <div class="curl-block" style="margin-top:8px">
       ${cmdBoxes}
     </div>
