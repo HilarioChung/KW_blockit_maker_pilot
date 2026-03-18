@@ -827,10 +827,10 @@ function makeDefault(type) {
     case 'image_link_ai':     return { type:'image_link', _src:'ai',     url:'', _preview:'' };
     case 'image_link_upload': return { type:'image_link', _src:'upload', url:'', _preview:'' };
     case 'divider':     return { type:'divider' };
-    case 'button':      return { type:'button', text:'버튼', style:'default', action:{ type:'open_system_browser', url:'https://example.com' } };
+    case 'button':      return { type:'button', text:'버튼', style:'default', action:{ type:'open_system_browser', value:'https://example.com' } };
     case 'action':      return { type:'action', elements:[
-                          { type:'button', text:'확인', style:'primary', action:{ type:'open_system_browser', url:'https://example.com' } },
-                          { type:'button', text:'취소', style:'default', action:{ type:'open_system_browser', url:'https://example.com' } },
+                          { type:'button', text:'확인', style:'primary', action:{ type:'open_system_browser', value:'https://example.com' } },
+                          { type:'button', text:'취소', style:'default', action:{ type:'open_system_browser', value:'https://example.com' } },
                         ]};
     case 'description': return { type:'description', term:'항목', accent:false, content:{ type:'text', text:'내용을 입력하세요.' } };
     case 'section':     return { type:'section', content:{ type:'text', text:'섹션 내용을 입력하세요.' }, accessory:null };
@@ -1040,8 +1040,8 @@ function buildForm(b, i) {
       </div>
       <div class="fg">
         <label class="fl">링크 URL</label>
-        <input class="fi" type="url" value="${eh(b.action?.url||'')}" placeholder="https://example.com"
-          oninput="if(!blocks[${i}].action)blocks[${i}].action={type:'open_system_browser'};blocks[${i}].action.url=this.value;updateOutput()">
+        <input class="fi" type="url" value="${eh(b.action?.value||'')}" placeholder="https://example.com"
+          oninput="if(!blocks[${i}].action)blocks[${i}].action={type:'open_system_browser'};blocks[${i}].action.value=this.value;updateOutput()">
       </div>`;
 
     case 'action': {
@@ -1068,12 +1068,12 @@ function buildForm(b, i) {
             </div>
             <div class="fg">
               <label class="fl">링크 URL</label>
-              <input class="fi" type="url" value="${eh(el.action?.url||'')}" placeholder="https://example.com"
-                oninput="if(!blocks[${i}].elements[${bi}].action)blocks[${i}].elements[${bi}].action={type:'open_system_browser'};blocks[${i}].elements[${bi}].action.url=this.value;updateOutput()">
+              <input class="fi" type="url" value="${eh(el.action?.value||'')}" placeholder="https://example.com"
+                oninput="if(!blocks[${i}].elements[${bi}].action)blocks[${i}].elements[${bi}].action={type:'open_system_browser'};blocks[${i}].elements[${bi}].action.value=this.value;updateOutput()">
             </div>
           </div>
         `).join('')}
-        ${elems.length < 3 ? `<button class="add-btn" onclick="blocks[${i}].elements.push({type:'button',text:'버튼',style:'default',action:{type:'open_system_browser',url:'https://example.com'}});syncAll()">+ 버튼 추가 (최대 3개)</button>` : ''}`;
+        ${elems.length < 3 ? `<button class="add-btn" onclick="blocks[${i}].elements.push({type:'button',text:'버튼',style:'default',action:{type:'open_system_browser',value:'https://example.com'}});syncAll()">+ 버튼 추가 (최대 3개)</button>` : ''}`;
     }
 
     case 'description': return `
@@ -1328,7 +1328,7 @@ function renderBlock(b) {
     case 'divider':
       return `<div class="pv-divider"></div>`;
     case 'button': {
-      const btnUrl = safeUrl(b.action?.url);
+      const btnUrl = safeUrl(b.action?.value);
       const btnEl = btnUrl
         ? `<a class="pv-btn ${b.style||'default'}" href="${eh(btnUrl)}" target="_blank" rel="noopener noreferrer">${eh(b.text)}</a>`
         : `<div class="pv-btn ${b.style||'default'}">${eh(b.text)}</div>`;
@@ -1336,7 +1336,7 @@ function renderBlock(b) {
     }
     case 'action':
       return `<div class="pv-action">${(b.elements||[]).map(el => {
-        const elUrl = safeUrl(el.action?.url);
+        const elUrl = safeUrl(el.action?.value);
         return elUrl
           ? `<a class="pv-btn ${el.style||'default'}" href="${eh(elUrl)}" target="_blank" rel="noopener noreferrer">${eh(el.text)}</a>`
           : `<div class="pv-btn ${el.style||'default'}">${eh(el.text)}</div>`;
@@ -1381,8 +1381,8 @@ function cleanBlock(b) {
     case 'text':        return { type:'text', text:b.text };
     case 'image_link':  return { type:'image_link', url: safeUrl(b.url) };
     case 'divider':     return { type:'divider' };
-    case 'button':      return { type:'button', text:b.text, style:b.style, action:{ type:b.action?.type||'open_system_browser', url:safeUrl(b.action?.url) } };
-    case 'action':      return { type:'action', elements:(b.elements||[]).map(el=>({ type:'button', text:el.text, style:el.style, action:{ type:el.action?.type||'open_system_browser', url:safeUrl(el.action?.url) } })) };
+    case 'button':      return { type:'button', text:b.text, style:b.style, action:{ type:b.action?.type||'open_system_browser', value:safeUrl(b.action?.value) } };
+    case 'action':      return { type:'action', elements:(b.elements||[]).map(el=>({ type:'button', text:el.text, style:el.style, action:{ type:el.action?.type||'open_system_browser', value:safeUrl(el.action?.value) } })) };
     case 'description': return { type:'description', term:b.term, accent:b.accent, content:{ type:'text', text:b.content?.text||'' } };
     case 'section': {
       const out = { type:'section', content:{ type:'text', text:b.content?.text||'' } };
@@ -1732,8 +1732,8 @@ const TEMPLATES = [
       { type:'description', term:'대상', accent:true, content:{ type:'text', text:'전 임직원' } },
       { type:'divider' },
       { type:'action', elements:[
-        { type:'button', text:'자세히 보기', style:'primary', action:{ type:'open_system_browser', url:'https://example.com' } },
-        { type:'button', text:'확인',       style:'default', action:{ type:'open_system_browser', url:'https://example.com' } },
+        { type:'button', text:'자세히 보기', style:'primary', action:{ type:'open_system_browser', value:'https://example.com' } },
+        { type:'button', text:'확인',       style:'default', action:{ type:'open_system_browser', value:'https://example.com' } },
       ]},
     ]
   },
@@ -1749,8 +1749,8 @@ const TEMPLATES = [
       { type:'description', term:'사유',   accent:true, content:{ type:'text', text:'가족 여행' } },
       { type:'divider' },
       { type:'action', elements:[
-        { type:'button', text:'승인', style:'primary', action:{ type:'open_system_browser', url:'https://example.com/approve' } },
-        { type:'button', text:'반려', style:'danger',  action:{ type:'open_system_browser', url:'https://example.com/reject' } },
+        { type:'button', text:'승인', style:'primary', action:{ type:'open_system_browser', value:'https://example.com/approve' } },
+        { type:'button', text:'반려', style:'danger',  action:{ type:'open_system_browser', value:'https://example.com/reject' } },
       ]},
     ]
   },
@@ -1765,7 +1765,7 @@ const TEMPLATES = [
       { type:'context', content:{ type:'text', text:'오후 2:00 · 신규 프로젝트 킥오프 · Zoom' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/zoom.png' } },
       { type:'context', content:{ type:'text', text:'오후 4:30 · 고객사 미팅 · 2층 미팅룸' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/handshake.png' } },
       { type:'divider' },
-      { type:'button', text:'전체 일정 보기', style:'default', action:{ type:'open_system_browser', url:'https://example.com/calendar' } },
+      { type:'button', text:'전체 일정 보기', style:'default', action:{ type:'open_system_browser', value:'https://example.com/calendar' } },
     ]
   },
   {
@@ -1795,8 +1795,8 @@ const TEMPLATES = [
       { type:'description', term:'소요시간', accent:false, content:{ type:'text', text:'약 3분' } },
       { type:'divider' },
       { type:'action', elements:[
-        { type:'button', text:'설문 참여하기', style:'primary', action:{ type:'open_system_browser', url:'https://example.com/survey' } },
-        { type:'button', text:'나중에 하기',  style:'default', action:{ type:'open_system_browser', url:'https://example.com' } },
+        { type:'button', text:'설문 참여하기', style:'primary', action:{ type:'open_system_browser', value:'https://example.com/survey' } },
+        { type:'button', text:'나중에 하기',  style:'default', action:{ type:'open_system_browser', value:'https://example.com' } },
       ]},
       { type:'context', content:{ type:'text', text:'응답 내용은 익명으로 처리되며 통계 목적으로만 사용됩니다.' }, image:{ type:'image_link', url:'https://img.icons8.com/color/48/survey.png' } },
     ]
@@ -1814,8 +1814,8 @@ const TEMPLATES = [
       { type:'divider' },
       { type:'text', text:'👏 모두 함께 축하해 주세요!' },
       { type:'action', elements:[
-        { type:'button', text:'👍 축하해요!', style:'primary', action:{ type:'open_system_browser', url:'https://example.com/congrats' } },
-        { type:'button', text:'💬 응원 메시지', style:'default', action:{ type:'open_system_browser', url:'https://example.com/message' } },
+        { type:'button', text:'👍 축하해요!', style:'primary', action:{ type:'open_system_browser', value:'https://example.com/congrats' } },
+        { type:'button', text:'💬 응원 메시지', style:'default', action:{ type:'open_system_browser', value:'https://example.com/message' } },
       ]},
     ]
   },
