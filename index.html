@@ -1568,25 +1568,7 @@ function buildCurlGuide(appKey, emails) {
   const emptyImgCount = cleanedBlocks.filter(
     cb => cb.type === 'image_link' && !cb.url
   ).length;
-
   const notifText = document.getElementById('notifText').value || '새 메시지';
-
-  // 수신자별 curl 커맨드 생성
-  const cmds = emails.map((email, idx) => {
-    const payload = { email, text: notifText, blocks: cleanedBlocks };
-    const payloadJson = JSON.stringify(payload, null, 2);
-    const file = emails.length > 1 ? `/tmp/kw_msg_${idx + 1}.json` : '/tmp/kw_message.json';
-    return `# ${emails.length > 1 ? `수신자 ${idx + 1}: ${email}` : '페이로드 파일 저장'}
-cat > ${file} << 'PAYLOAD'
-${payloadJson}
-PAYLOAD
-
-curl -s -X POST \\
-  "${KW_API}/messages.send_by_email" \\
-  -H "Authorization: Bearer ${appKey}" \\
-  -H "Content-Type: application/json" \\
-  -d @${file}`;
-  });
 
   const emptyImgWarning = emptyImgCount > 0 ? `
     <div class="send-status" style="background:#FFF0F0;color:#8B1A1A;border:1px solid #F5A0A0;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:2px;">
@@ -1594,15 +1576,73 @@ curl -s -X POST \\
       프리셋을 선택하거나 공개 URL(https://...)을 입력하세요.
     </div>` : '';
 
-  const cmdBoxes = cmds.map((cmd, idx) =>
-    curlBox(emails.length > 1 ? `전송 명령어 — 수신자 ${idx + 1} (${emails[idx]})` : '전송 명령어 (1단계로 완료)', cmd)
-  ).join('');
+  // 단일 수신자: 기존 방식
+  if (emails.length === 1) {
+    const payload = { email: emails[0], text: notifText, blocks: cleanedBlocks };
+    const payloadJson = JSON.stringify(payload, null, 2);
+    const cmd = `# 페이로드 파일 저장
+cat > /tmp/kw_message.json << 'PAYLOAD'
+${payloadJson}
+PAYLOAD
 
+# 전송
+curl -s -X POST \\
+  "${KW_API}/messages.send_by_email" \\
+  -H "Authorization: Bearer ${appKey}" \\
+  -H "Content-Type: application/json" \\
+  -d @/tmp/kw_message.json`;
+
+    return buildCurlHtml(emails, emptyImgWarning, curlBox('전송 명령어 (1단계로 완료)', cmd));
+  }
+
+  // 복수 수신자: 10명 단위 배치, 한 번에 복사/실행 가능한 스크립트
+  const batches = [];
+  for (let s = 0; s < emails.length; s += 10) {
+    batches.push(emails.slice(s, s + 10));
+  }
+
+  // 템플릿 JSON (email 자리만 플레이스홀더)
+  const tmplPayload = { email: '__EMAIL__', text: notifText, blocks: cleanedBlocks };
+  const tmplJson = JSON.stringify(tmplPayload, null, 2);
+
+  const cmdBoxes = batches.map((batch, bi) => {
+    const emailList = batch.map(e => `"${e}"`).join(' ');
+    const label = batches.length > 1
+      ? `배치 ${bi + 1}/${batches.length} (${batch.length}명: ${batch[0]} ~ ${batch[batch.length - 1]})`
+      : `전송 스크립트 (${batch.length}명 일괄)`;
+
+    const script = `# 페이로드 템플릿 저장
+cat > /tmp/kw_template.json << 'PAYLOAD'
+${tmplJson}
+PAYLOAD
+
+# ${batch.length}명 일괄 전송
+EMAILS=(${emailList})
+for EMAIL in "\${EMAILS[@]}"; do
+  sed "s|__EMAIL__|$EMAIL|" /tmp/kw_template.json > /tmp/kw_payload.json
+  echo "→ $EMAIL 전송 중..."
+  RESULT=$(curl -s -X POST \\
+    "${KW_API}/messages.send_by_email" \\
+    -H "Authorization: Bearer ${appKey}" \\
+    -H "Content-Type: application/json" \\
+    -d @/tmp/kw_payload.json)
+  echo "  $RESULT"
+  sleep 0.5
+done
+echo "✅ 배치 전송 완료 (\${#EMAILS[@]}명)"`;
+
+    return curlBox(label, script);
+  }).join('');
+
+  return buildCurlHtml(emails, emptyImgWarning, cmdBoxes);
+}
+
+function buildCurlHtml(emails, emptyImgWarning, cmdBoxes) {
   return `
     <div class="send-status info">
       ℹ️ KakaoWork Bot API는 서버 환경 전용입니다 (브라우저 CORS 미지원).<br>
       아래 명령어를 <strong>터미널</strong>(맥: Terminal / 윈도우: Git Bash)에서 실행하세요.
-      ${emails.length > 1 ? `<br>수신자 <strong>${emails.length}명</strong> — 명령어를 순서대로 실행하세요.` : ''}
+      ${emails.length > 1 ? `<br>수신자 <strong>${emails.length}명</strong> — 명령어 블록을 복사해서 한 번에 붙여넣기하면 자동 실행됩니다.` : ''}
     </div>
     <div class="send-status" style="background:#FFF8E0;color:#6B5900;border:1px solid #F5D660;border-radius:8px;padding:10px 12px;font-size:12px;margin-top:2px;">
       ⚠️ <strong>이메일 주의</strong>: 카카오워크 <strong>가입 시 인증한 이메일</strong>만 유효합니다.<br>
